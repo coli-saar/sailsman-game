@@ -134,6 +134,25 @@ function createFullyConnectedGraph(numNodes) {
             .attr("pointer-events", "none");
 
     })
+    // var accWeightsDiv = document.createElement("div");
+    // accWeightsDiv.className = "acc-weight";
+    // accWeightsDiv.style.position = "absolute";
+    // accWeightsDiv.style.left = (width + 20) + "px";
+    // accWeightsDiv.style.top = 20 + "px";
+    // accWeightsDiv.textContent = "Current Weight: " + acc_weights;
+    // accWeightsDiv.style.fontSize = "20px";
+    var totalEdgeWeight = weights.reduce((acc, weight) => acc + weight, 0);
+
+    var totalWeightDiv = document.createElement("div");
+    totalWeightDiv.className = "total-weight";
+    totalWeightDiv.style.position = "absolute";
+    totalWeightDiv.style.left = (width + 20) + "px";
+    totalWeightDiv.style.top = 20 + "px";
+    totalWeightDiv.textContent = "Total Edge Weight: " + totalEdgeWeight;
+    totalWeightDiv.style.fontSize = "20px";
+
+    document.getElementById("tracking-area").appendChild(totalWeightDiv);
+    return [nodes, graph];
 }
 
 

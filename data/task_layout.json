@@ -55,7 +55,7 @@
         {
           "layout-type": "div",
           "id": "tracking-area",
-          "style": "width: 1024px; height: 768px; margin: auto; text-align: center"
+          "style": "position: relative; width: 1024px; height: 768px; margin: auto; text-align: center"
         }
       ]
     }
