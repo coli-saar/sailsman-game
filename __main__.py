@@ -194,7 +194,7 @@ class Sailsman(TaskBot):
         '''
         def calculate_tsp_score(graph, path):
             nodes = len(graph)
-            perms = permutations(list(range(1, nodes))) # Start node = 0
+            perms = list(permutations(list(range(1, nodes)))) # Start node = 0
             path_cost = 0
             assert(path[0] == path[-1])
             for i in range(len(path) - 1):
@@ -207,15 +207,18 @@ class Sailsman(TaskBot):
                     cost += graph[path[i]][path[i+1]]
 
                 costs.append(cost)
+            costs_indexed = [(i, costs[i]) for i in range(len(costs))]
+            costs_indexed.sort(key=lambda x: x[1])
             costs.sort()
             index = bisect_left(costs, path_cost)
-            percentile = 1 - (index / (len(costs) - 1))
+            percentile = index / (len(costs) - 1)
+            best_path = perms[costs_indexed[0][0]]
             # print(f"cost: {path_cost}")
             # print(f"best path cost: {costs[0]}")
             # print(f"index: {index}")
             # print(f"overall paths: {len(costs)}")
             
-            return percentile
+            return percentile, best_path, costs[0], path_cost
         
         session = self.session_manager[room_id]
         user_ids = list(session.graph.keys())
@@ -227,7 +230,10 @@ class Sailsman(TaskBot):
             combined_graph[i] = [nodes[x] + combined_graph[i][x] for x in range(len(nodes))]
         path = session.path[user_ids[0]] #Take either of the two paths as they are identical
         path = path + [path[0]] #add start-node as end-node as well
-        score = calculate_tsp_score(combined_graph, path)
+        score, gold_path, gold_cost, path_cost = calculate_tsp_score(combined_graph, path)
+        logging.debug(f"Best Path was: {gold_path}")
+        logging.debug(f"lowest weights was: {gold_cost}")
+        logging.debug(f"Chosen path was: {path_cost}")
             
 
         return score

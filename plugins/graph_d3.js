@@ -3,7 +3,7 @@ max_weight = 20;
 min_weight = 1;
 acc_weights = 0;
 
-numNodes = 7
+numNodes = 6
 
 path = [];
 path_links = [];
