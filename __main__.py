@@ -314,29 +314,27 @@ class Sailsman(TaskBot):
             # other_user = [usr for usr in self.users_global if usr != user_id]
 
             # read out task greeting
-            lines = ["*Welcome to the placement game!*",
+            lines = ["*Welcome to the Sailsman game!*",
                      "--------------------------------",
-                     """You and your partner are seeing the same room and the same objects.
-                     The objects, however, are placed in different positions. 
-                     **THE GOAL** is for both you and your partner to have the objects placed in *the same position*. The objects cannot overlap. 
-                     You can communicate through the chat; use English only.""",
-                     "When you're done, **YOU** need to click the submit button.",
-                     "*NOTE*: before you start, make sure to **resize your chat** so that the entire image on the right and all three objects are visible. (it's recommended to resize it until you see a gray border on the right) You might have to zoom out (CTRL+- or CMD+-) of your browser view so that the entire image fits.",
-                     "*NOTE*: If your partner leaves before you completed the experiment, please contact the researcher on Prolific immediately.",
+                     """You and your partner are each seeing a graph. They are exactly the same, except for the different values on each edge (line) between nodes (circles). These values represent the time it takes to walk along each edge.""",
+                     """**Your Goal** is to work together to choose the same path that visits every node exactly once and minimizes the total time (the sum of both your paths). You can talk to your partner using the chat — please use English only.""",
+                     """**You Choose a Path** by clicking on a node to move there. To go back, click on a node you’ve already visited. You start at node 1. To **Finish the Game**, either of you can click the submit button once both paths are identical and complete.""",
+                     "*NOTE*: before you start, make sure to **resize your chat** so that the entire graph on the right is visible.",
+                     """*NOTE*: You can only submit if both paths are the same and both players have visited every node. If this is not the case, you will get a message, telling you what's missing.""",
                      "--------------------------------"]
 
-            # for line in lines:
+            for line in lines:
             
-            self.sio.emit(
-                "text",
-                {
-                    "message": WELCOME.format(
-                        message="Welcome to the Sailsman Game!", color=STANDARD_COLOR
-                    ),
-                    "room": room_id,
-                    "html": True
-                },
-            )
+                self.sio.emit(
+                    "text",
+                    {
+                        "message": WELCOME.format(
+                            message=line, color=STANDARD_COLOR
+                        ),
+                        "room": room_id,
+                        "html": True
+                    },
+                )
  
         @self.sio.event
         def text_message(data):
