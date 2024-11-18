@@ -1,9 +1,15 @@
 
-var max_weight = 10
-var min_weight = 1
+var max_weight = 10;
+var min_weight = 1;
+var acc_weights = 0;
 
+numNodes = 5
 
-function createFullyConnectedGraph(numNodes) {
+path = [];
+graph = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
+return_graph = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
+
+function createFullyConnectedGraph() {
     width = 1024;
     height = 768;
     // var arc = d3.arc();
@@ -43,7 +49,9 @@ function createFullyConnectedGraph(numNodes) {
                 this.style.fill = "white";
                 this.parentNode.querySelector("text").style.fill = "black";
             })
-            .on("click", function(){console.log("clicked node ", node.id);});
+            .on("click", function() {
+                clickNode(node);
+            });
         group.append("text")
             .attr("class", "node_text")
             .attr("x", node.x)
@@ -81,11 +89,6 @@ function createFullyConnectedGraph(numNodes) {
         current_weight_sum += w;
         weights.push(w);
     }
-    var weights_iter = (function*() {
-        for (let i = 0; i < links.length; i++){
-            yield weights[i];
-        }
-    })();
 
     var weight_offset = 0.25;
     var line_gap_size = 20;
@@ -107,7 +110,10 @@ function createFullyConnectedGraph(numNodes) {
         const weight_x = center_weight_x + unitX * weight_offset * offset_value;
         // const weight_y = (y1 + y2) / 2 + (index % 2 === 0 ? -10 : 10); // Adjusted y coordinate to be symmetric and non-overlapping
         const weight_y = center_weight_y + unitY * weight_offset * offset_value;
+        // const next_weight = weights_iter.next().value;
+        const linkId = "link" + index;
         const group = svg.append("g")
+            .attr("id", linkId);
         group.append("line")
             .attr("class", "link")
             .attr("x1", x1)
@@ -128,35 +134,208 @@ function createFullyConnectedGraph(numNodes) {
             .attr("y", weight_y)
             .attr("text-anchor", "middle")
             .attr("dominant-baseline", "central")
-            .text(weights_iter.next().value)
+            .text(weights[index])
             .attr("fill", "black")
-            .attr("font-size", "20pt")
-            .attr("pointer-events", "none");
+            .attr("font-size", "20pt");
+
+        graph[link.source.id][link.target.id]=linkId;
+        graph[link.target.id][link.source.id]=linkId;
+        return_graph[link.source.id][link.target.id]=weights[index];
+        return_graph[link.target.id][link.source.id]=weights[index];
+        
+
 
     })
-    // var accWeightsDiv = document.createElement("div");
-    // accWeightsDiv.className = "acc-weight";
-    // accWeightsDiv.style.position = "absolute";
-    // accWeightsDiv.style.left = (width + 20) + "px";
-    // accWeightsDiv.style.top = 20 + "px";
-    // accWeightsDiv.textContent = "Current Weight: " + acc_weights;
-    // accWeightsDiv.style.fontSize = "20px";
-    var totalEdgeWeight = weights.reduce((acc, weight) => acc + weight, 0);
-
+    var total_edge_weight = 0;
+    for (let w of weights) {
+        total_edge_weight += w;
+    }
     var totalWeightDiv = document.createElement("div");
     totalWeightDiv.className = "total-weight";
     totalWeightDiv.style.position = "absolute";
     totalWeightDiv.style.left = (width + 20) + "px";
     totalWeightDiv.style.top = 20 + "px";
-    totalWeightDiv.textContent = "Total Edge Weight: " + totalEdgeWeight;
+    totalWeightDiv.textContent = "Total Edge Weight: " + total_edge_weight;
     totalWeightDiv.style.fontSize = "20px";
 
+    var accWeightsDiv = document.createElement("div");
+    accWeightsDiv.className = "acc-weight";
+    accWeightsDiv.style.position = "absolute";
+    accWeightsDiv.style.left = (width + 20) + "px";
+    accWeightsDiv.style.top = 120 + "px"; // updated y position to avoid overlap
+    accWeightsDiv.textContent = "Current Weight: " + acc_weights;
+    accWeightsDiv.style.fontSize = "20px";
+
     document.getElementById("tracking-area").appendChild(totalWeightDiv);
-    return [nodes, graph];
+    document.getElementById("tracking-area").appendChild(accWeightsDiv);
+    socket.emit("message_command",
+        {
+            "command": {
+                "event": "save_graph",
+                "graph": return_graph
+            },
+            "room": self_room,
+            "user_id": self_user
+        }
+    )
+    return nodes;
 }
 
+function clickNode(clickedNode){
+    console.log("clicke node: " + clickedNode.id);
+    if (path.length < 1){
+        pushNode(clickedNode);
+    }
+    else{
+        // Check whether clicked node is in the path already
+        const updated_path = false;
+        for (let i=0; i<path.length; i++){
+            const n = path[i];
+            if (n === clickedNode){
+                if (i === path.length - 1){
+                    resetNodeGray(clickedNode);
+                    path.pop();
+                    if (path.length > 0){
+                        const last_node = path[path.length - 1];
+                        const last_link_id = graph[last_node.id][n.id];
+                        const linkElement = d3.select(`#${last_link_id}`);
+                        resetLink(linkElement);
+                        makeNodeNewOut(last_node);
+                    }
+                }
+                else{
+                    let j = path.length - 1;
+                    while (j > i){
+                        const linkId = graph[path[j].id][path[j-1].id];
+                        const linkElement = d3.select(`#${linkId}`);
+                        resetLink(linkElement);
+                        resetNodeWhite(path[j]);
+                        path.pop();
+                        j--;
+                    }
+                    makeNodeNew(path[i]);
+                }
+                updateWeights();
+                updated_path = true;
+            }
+        }
+        if (updated_path === false){
+            const last_node = path[path.length - 1];
+            const linkId = graph[clickedNode.id][last_node.id];
+            const linkElement = d3.select(`#${linkId}`);
+        
+            makeNodeOld(last_node);
+            pushNode(clickedNode);
+            colorLinkVisited(linkElement);
+            updateWeights();
+        }
+    }
+    socket.emit("message_command",
+        {
+            "command": {
+                "event": "update_path",
+                "path": path
+            },
+            "room": self_room,
+            "user_id": self_user
+        }
+    )
 
+}
+function updateWeights(){
+    acc_weights = 0;
+    for (let i=0; i<path.length - 1; i++){
+        const node_s = path[i];
+        const node_e = path[i+1];
+        const linkId = graph[node_s.id][node_e.id];
+        const linkElement = d3.select(`#${linkId}`);
+        acc_weights += parseInt(linkElement.select("text").text(), 10);
+    }
+    const accWeigthDiv = document.querySelector(".acc-weight");
+    accWeigthDiv.textContent = "Current Weight: " + acc_weights;
+}
+
+function pushNode(node){
+    path.push(node);
+    makeNodeNew(node);
+}
+function makeNodeNew(node){
+    const nodeElement = document.getElementById(node.id);
+    // nodeElement.setAttribute("fill", "green");
+    nodeElement.style.fill = "green";
+    nodeElement.onmouseover = function() { this.style.fill = "green"; };
+    nodeElement.onmouseout = function() { this.style.fill = "lightgreen"; };
+}
+function makeNodeNewOut(node){
+    const nodeElement = document.getElementById(node.id);
+    // nodeElement.setAttribute("fill", "green");
+    nodeElement.style.fill = "lightgreen";
+    nodeElement.onmouseover = function() { this.style.fill = "green"; };
+    nodeElement.onmouseout = function() { this.style.fill = "lightgreen"; };
+}
+function makeNodeOld(node){
+    const nodeElement = document.getElementById(node.id);
+    nodeElement.style.fill = "orange";
+    nodeElement.onmouseover = function() { 
+        this.style.fill = "#F08C00";
+        nodeElement.parentNode.querySelector("text").style.fill = "white";
+    };
+    
+    nodeElement.onmouseout = function() {
+        this.style.fill = "orange";
+        nodeElement.parentNode.querySelector("text").style.fill = "black";
+    };
+}
+function resetNodeWhite(node){
+    const nodeElement = document.getElementById(node.id);
+    // nodeElement.setAttribute("fill", "green");
+    nodeElement.style.fill = "white";
+    nodeElement.onmouseover = function() {
+        this.style.fill = "gray";
+    };
+    nodeElement.onmouseout = function() { this.style.fill = "white"; };
+}
+function resetNodeGray(node){
+    const nodeElement = document.getElementById(node.id);
+    // nodeElement.setAttribute("fill", "green");
+    nodeElement.style.fill = "gray";
+    nodeElement.onmouseover = function() {
+        this.style.fill = "gray";
+    };
+    nodeElement.onmouseout = function() { this.style.fill = "white"; };
+}
+
+function colorLinkVisited(link){
+    link.selectAll(".link").style("stroke", "orange").style("stroke-width", "4px");
+}
+function colorLinkAccepting(link){
+    link.selectAll(".link").style("stroke", "lightgreen").style("stroke-width", "4px");
+}
+function resetLink(link){
+    link.selectAll(".link").style("stroke", "black").style("stroke-width", "1px");
+}
+
+$(`#submit_button`).click(() => {
+    console.log("SUBMITTING")
+    socket.emit("message_command",
+        {
+            "command": "stop",
+            "room": self_room,
+            "user_id": self_user
+        }
+    )
+})
+// socket.emit("message_command",
+//     {
+//         "text_message": {
+//             "event": "board_logging",
+//             "board": objects_board
+//         },
+//         "room": self_room
+//     }
+// )
 // Call the function to create the graph
 // $(document).ready(function () {
-createFullyConnectedGraph(6); // Change the number to create more nodes
+nodes = createFullyConnectedGraph(); // Change the number to create more nodes
 // });
+
