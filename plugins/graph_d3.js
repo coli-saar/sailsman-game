@@ -1,11 +1,12 @@
 
-var max_weight = 10;
-var min_weight = 1;
-var acc_weights = 0;
+max_weight = 20;
+min_weight = 1;
+acc_weights = 0;
 
-numNodes = 5
+numNodes = 7
 
 path = [];
+path_links = [];
 graph = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
 return_graph = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
 
@@ -23,7 +24,7 @@ function createFullyConnectedGraph() {
     // numNodes = 12;
     const centerX = width / 2;
     const centerY = height / 2;
-    margin = 50;
+    const margin = 70;
     const radius = width < height ? width / 2 - margin : height / 2 - margin;
     // Generate nodes with random positions
     const nodes = d3.range(numNodes).map((d, i) => ({
@@ -90,7 +91,7 @@ function createFullyConnectedGraph() {
         weights.push(w);
     }
 
-    var weight_offset = 0.25;
+    var weight_offset = 0.303;
     var line_gap_size = 20;
     links.forEach((link, index) => {
         const dx = link.target.x - link.source.x;
@@ -178,57 +179,77 @@ function createFullyConnectedGraph() {
             "user_id": self_user
         }
     )
+    pushNode(nodes[0]);
+    socket.emit("message_command",
+        {
+            "command": {
+                "event": "update_path",
+                "graph": path
+            },
+            "room": self_room,
+            "user_id": self_user
+        }
+    )
     return nodes;
 }
 
 function clickNode(clickedNode){
-    console.log("clicke node: " + clickedNode.id);
-    if (path.length < 1){
-        pushNode(clickedNode);
-    }
-    else{
-        // Check whether clicked node is in the path already
-        const updated_path = false;
-        for (let i=0; i<path.length; i++){
-            const n = path[i];
-            if (n === clickedNode){
-                if (i === path.length - 1){
-                    resetNodeGray(clickedNode);
-                    path.pop();
-                    if (path.length > 0){
-                        const last_node = path[path.length - 1];
-                        const last_link_id = graph[last_node.id][n.id];
-                        const linkElement = d3.select(`#${last_link_id}`);
-                        resetLink(linkElement);
-                        makeNodeNewOut(last_node);
-                    }
-                }
-                else{
-                    let j = path.length - 1;
-                    while (j > i){
-                        const linkId = graph[path[j].id][path[j-1].id];
-                        const linkElement = d3.select(`#${linkId}`);
-                        resetLink(linkElement);
-                        resetNodeWhite(path[j]);
-                        path.pop();
-                        j--;
-                    }
-                    makeNodeNew(path[i]);
-                }
-                updateWeights();
-                updated_path = true;
+    // console.log("clicke node: " + clickedNode.id);
+    // if (path.length < 1){
+    //     pushNode(clickedNode);
+    // }
+    // else{
+    // Check whether clicked node is in the path already
+    var updated_path = false;
+    for (let i=0; i<path.length; i++){
+        const n = path[i];
+        if (n === clickedNode){
+            if (path.length === 1){
+                return;
             }
-        }
-        if (updated_path === false){
-            const last_node = path[path.length - 1];
-            const linkId = graph[clickedNode.id][last_node.id];
-            const linkElement = d3.select(`#${linkId}`);
-        
-            makeNodeOld(last_node);
-            pushNode(clickedNode);
-            colorLinkVisited(linkElement);
+            if (i === path.length - 1){
+                resetNodeGray(clickedNode);
+                path.pop();
+                last_link_id = path_links.pop();
+                const linkElement = d3.select(`#${last_link_id}`);
+                resetLink(linkElement);
+                makeNodeNewOut(path[path.length - 1]);
+            }
+            else{
+                while (path_links.length > i){
+                    last_link_id = path_links.pop();
+                    const linkElement = d3.select(`#${last_link_id}`);
+                    resetLink(linkElement);
+                }
+                // let j = path.length - 1;
+                while (path.length > i + 1){
+                    node = path.pop();
+                    resetNodeWhite(node);
+                }
+                makeNodeNew(path[i]);
+            }
             updateWeights();
+            updated_path = true;
         }
+        // }
+    }
+    if (updated_path == false){
+        const last_node = path[path.length - 1];
+        const linkId = graph[clickedNode.id][last_node.id];
+        const linkElement = d3.select(`#${linkId}`);
+
+        path_links.push(linkId)
+        makeNodeOld(last_node);
+        pushNode(clickedNode);
+        colorLinkVisited(linkElement);
+
+        if (path.length === numNodes){
+            const linkId = graph[clickedNode.id][path[0].id];
+            const linkElement = d3.select(`#${linkId}`);
+            colorLinkVisited(linkElement);
+            path_links.push(linkId);
+        }
+        updateWeights();
     }
     socket.emit("message_command",
         {
@@ -244,10 +265,10 @@ function clickNode(clickedNode){
 }
 function updateWeights(){
     acc_weights = 0;
-    for (let i=0; i<path.length - 1; i++){
-        const node_s = path[i];
-        const node_e = path[i+1];
-        const linkId = graph[node_s.id][node_e.id];
+    for (const linkId of path_links){
+        // const node_s = path[i];
+        // const node_e = path[i+1];
+        // const linkId = graph[node_s.id][node_e.id];
         const linkElement = d3.select(`#${linkId}`);
         acc_weights += parseInt(linkElement.select("text").text(), 10);
     }
@@ -262,7 +283,7 @@ function pushNode(node){
 function makeNodeNew(node){
     const nodeElement = document.getElementById(node.id);
     // nodeElement.setAttribute("fill", "green");
-    nodeElement.style.fill = "green";
+    nodeElement.style.fill = "lightgreen";
     nodeElement.onmouseover = function() { this.style.fill = "green"; };
     nodeElement.onmouseout = function() { this.style.fill = "lightgreen"; };
 }
