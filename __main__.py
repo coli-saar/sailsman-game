@@ -181,14 +181,15 @@ class Sailsman(TaskBot):
         # delete data structures
         self.session_manager.clear_session(room_id)
 
-    def calculate_score(self, board1, board2, room_id):
+    def calculate_score(self, room_id):
 
-        ''' A function calculating the score based on the given object placement on two boards.
+        ''' Calculates the score of the combined paths of both players. Paths must be identical!
         
-        :param board1: list of dicts
-        :param board2: list of dicts
+        Parameters:
+            room_id(int): the room for which to calculate the score.
         
-        :return score: int
+        Return:
+            score(int): The percentile of the combined sum of weights with respect to all possible paths. 1 is the 100 percentile, the best possible path.
         
         '''
         def calculate_tsp_score(graph, path):
@@ -208,51 +209,32 @@ class Sailsman(TaskBot):
                 costs.append(cost)
             costs.sort()
             index = bisect_left(costs, path_cost)
-            percentile = index/len(costs)
-            print(f"cost: {path_cost}")
-            print(f"best path cost: {costs[0]}")
-            print(f"index: {index}")
-            print(f"overall paths: {len(costs)}")
+            percentile = 1 - (index / (len(costs) - 1))
+            # print(f"cost: {path_cost}")
+            # print(f"best path cost: {costs[0]}")
+            # print(f"index: {index}")
+            # print(f"overall paths: {len(costs)}")
             
             return percentile
-        user_ids = self.session_manager[room_id].graph.keys()
-        combined_graph = self.session_manager[room_id].graph[user_ids[0]]
+        
+        session = self.session_manager[room_id]
+        user_ids = list(session.graph.keys())
+
+        assert(session.path[user_ids[0]] == session.path[user_ids[1]])
+
+        combined_graph = session.graph[user_ids[0]]
         for i, nodes in enumerate(self.session_manager[room_id].graph[user_ids[1]]):
             combined_graph[i] = [nodes[x] + combined_graph[i][x] for x in range(len(nodes))]
+        path = session.path[user_ids[0]] #Take either of the two paths as they are identical
+        path = path + [path[0]] #add start-node as end-node as well
+        score = calculate_tsp_score(combined_graph, path)
             
 
-        # sort the boards by name of object
-        sorted1 = sorted(board1, key=lambda d: d.get("name"), reverse=True)
-        sorted2 = sorted(board2, key=lambda d: d.get("name"), reverse=True)
-
-        scores = {} # k: obj, v: score
-
-        for obj1, obj2 in zip(sorted1, sorted2): # ob1, ob2 --> dicts
-            object = obj1['name']
-            ManhattanDistance = abs( obj1['x'] - obj2['x'] ) + abs( obj1['y'] - obj2['y'] )
-
-            scores[object] = ManhattanDistance
-        
-        if set(scores.values()) == set([0]):
-            return 100
-        
-        else:
-            # max x = 1240; max y = 816; maxdist = 2056
-            # max x = 1024; max y = 740; maxdist = 1764
-            max_dist = 1764
-            percent_off = []
-            for score in scores.values():
-                percent = score * 100 / max_dist
-                percent_off += [percent]
-                
-            avg_percent_off = sum(percent_off) / len(percent_off)
-            final_score = round(100 - avg_percent_off, 2)
-
-            return final_score
+        return score
 
     def confirmation_code(self, room_id, bonus, receiver_id=None):
         """ Generate token that will be sent to each player. """
-        kwargs = dict()
+        kwargs = {}
         # either only for one user or for both
         if receiver_id is not None:
             kwargs["receiver_id"] = receiver_id
@@ -403,8 +385,46 @@ class Sailsman(TaskBot):
                 if data["command"] == "stop":
                     # retrieve latest board and calculate score
                     # board1, board2 = list(this_session.latest_board.values())
-                    # score = self.calculate_score(board1, board2)
-
+                    paths = list(this_session.path.values())
+                    if len(paths) < 2:
+                        self.sio.emit(
+                            "text",
+                            {
+                                "message": WELCOME.format(
+                                    message="You must choose a path with your partner first, before submitting! See the Welcome Message on how to do so.", color=STANDARD_COLOR
+                                ),
+                                "room": room_id,
+                                "html": True
+                            },
+                        )
+                        return
+                    if paths[0] != paths[1]:
+                        self.sio.emit(
+                            "text",
+                            {
+                                "message": WELCOME.format(
+                                    message="Your paths are not the same. Make sure that your paths are equivalent before submitting!", color=STANDARD_COLOR
+                                ),
+                                "room": room_id,
+                                "html": True
+                            },
+                        )
+                        return
+                    if len(paths[0]) != len(list(this_session.graph.values())[0]):
+                        self.sio.emit(
+                            "text",
+                            {
+                                "message": WELCOME.format(
+                                    message="Your paths are not complete. Make sure to choose every node once.", color=STANDARD_COLOR
+                                ),
+                                "room": room_id,
+                                "html": True
+                            },
+                        )
+                        return
+                    
+                    score = self.calculate_score(room_id)
+                    self.log_event("score", {"score": score}, room_id)
                     # # log extra event (score event)
                     # self.log_event("score", {"score": score}, room_id)
                     # self.log_event("board_logging", {"board": this_session.latest_board}, room_id)
@@ -416,7 +436,16 @@ class Sailsman(TaskBot):
                     # this_session.scores += [score] # add the score to the list of scores
 
                     # this_session.submissions = set() # empty the list of who submitted (for next round)
-
+                    self.sio.emit(
+                            "text",
+                            {
+                                "message": WELCOME.format(
+                                    message=f"Congrats, you completed the game! You found a joined path that is under the best {score*100}%.", color=STANDARD_COLOR
+                                ),
+                                "room": room_id,
+                                "html": True
+                            },
+                        )
                     for usr in this_session.players:
                         self.confirmation_code(room_id=room_id, bonus=5, receiver_id=usr["id"])
 
