@@ -8,6 +8,7 @@ from threading import Timer
 import requests
 # from time import sleep
 from templates import TaskBot
+from time import sleep
 # from random import randrange, choice
 
 
@@ -45,7 +46,8 @@ class Session:
         self.one_minute_timer: RoomTimer = None
         self.graph = {}
         self.path = {}
-        self.counter = 1  # number of rounds to play; the actual number is n+1
+        self.counter = 4  # number of rounds to play; the actual number is n+1
+        self.graph_sizes = [6,6,5,4]
         self.submissions = set()
         self.scores = []
 
@@ -64,6 +66,13 @@ class Session:
             logging.debug("Tried to cancel one_minute_timer, but this Session had no one_minute_timer")
         # self.halfway_timer.cancel()
         # self.one_minute_timer.cancel()
+
+    @property
+    def graph_size(self):
+        #  ADAPT THIS FUNCTION ACCORDING TO THE VALUE IN self.counter!
+        assert(self.counter > 0)
+        return self.graph_sizes[self.counter - 1]
+
 
 
 class SessionManager:
@@ -108,6 +117,18 @@ class Sailsman(TaskBot):
 
         this_session.one_minute_timer = RoomTimer(
             self.warning_timer_one_min, room_id, TIMEOUT_TIMER-1
+        )
+        self.sio.emit(
+            "message_command",
+            {
+                "command": {
+                    "event": "new_episode",
+                    "size": this_session.graph_size,
+                    "max_weight": 10,
+                    "min_weight": 1
+                },
+                "room": room_id
+            }
         )
 
         # add users to this session
@@ -387,6 +408,7 @@ class Sailsman(TaskBot):
 
             else:
                 if data["command"] == "stop":
+                    
                     # retrieve latest board and calculate score
                     # board1, board2 = list(this_session.latest_board.values())
                     paths = list(this_session.path.values())
@@ -429,6 +451,7 @@ class Sailsman(TaskBot):
                     
                     score = self.calculate_score(room_id)
                     self.log_event("score", {"score": score}, room_id)
+                    this_session.counter -= 1
                     # # log extra event (score event)
                     # self.log_event("score", {"score": score}, room_id)
                     # self.log_event("board_logging", {"board": this_session.latest_board}, room_id)
@@ -440,20 +463,46 @@ class Sailsman(TaskBot):
                     # this_session.scores += [score] # add the score to the list of scores
 
                     # this_session.submissions = set() # empty the list of who submitted (for next round)
-                    self.sio.emit(
-                            "text",
+                    if this_session.counter > 0:
+                        self.sio.emit(
+                                "text",
+                                {
+                                    "message": COLOR_MESSAGE.format(
+                                        message=f"Congrats, you found a joined path that is under the best {score*100:.3f}%. Please wait for the next episode to start.", color=SUCCESS_COLOR
+                                    ),
+                                    "room": room_id,
+                                    "html": True
+                                },
+                            )
+                        sleep(0.5)
+                        self.sio.emit(
+                            "message_command",
                             {
-                                "message": WELCOME.format(
-                                    message=f"Congrats, you completed the game! You found a joined path that is under the best {score*100:.3f}%.", color=STANDARD_COLOR
-                                ),
-                                "room": room_id,
-                                "html": True
+                            "command": {
+                                "event": "new_episode",
+                                "size": this_session.graph_size,
+                                "max_weight": 15,
+                                "min_weight": 1
                             },
-                        )
-                    for usr in this_session.players:
-                        self.confirmation_code(room_id=room_id, bonus=5, receiver_id=usr["id"])
+                            "room": room_id
+                            }
 
-                    self.close_room(room_id)
+                        )
+                    else:
+                        self.sio.emit(
+                                "text",
+                                {
+                                    "message": COLOR_MESSAGE.format(
+                                        message=f"Congrats, you completed the game! You found a joined path that is under the best {score*100:.3f}%.", color=SUCCESS_COLOR
+                                    ),
+                                    "room": room_id,
+                                    "html": True
+                                },
+                            )
+                        for usr in this_session.players:
+                            self.confirmation_code(room_id=room_id, bonus=5, receiver_id=usr["id"])
+
+                        self.close_room(room_id)
                     # if this_session.counter == 0: # if this is the last round
                         
                     #     # Inform users the experiment is over and give them the last score

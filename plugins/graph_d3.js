@@ -1,9 +1,9 @@
 
-max_weight = 20;
+max_weight = 10;
 min_weight = 1;
 acc_weights = 0;
 
-numNodes = 6
+numNodes = 3;
 
 path = [];
 path_links = [];
@@ -11,16 +11,22 @@ graph = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
 return_graph = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
 
 function createFullyConnectedGraph() {
-    width = 1024;
-    height = 768;
+    const width = 1024;
+    const height = 768;
     // var arc = d3.arc();
-    var svg = d3.select("#tracking-area")
-    .append("svg")
-    .attr("width", width)
+    const svg = d3.select("#tracking-area")
+    .select("svg")  // Try to select the SVG
+    .empty()        // Check if the selection is empty
+    ? d3.select("#tracking-area").append("svg")  // Append a new SVG if empty
+    : d3.select("#tracking-area svg");           // Otherwise, use the existing one
+
+    svg.attr("width", width)
     .attr("height", height);
     // var arc = d3.arc().innerRadius(10).outerRadius(20).startAngle(0).endAngle(Math.PI * 2);
     // svg.append("path").attr("d", arc).attr("transform", "translate(100, 100)").attr("fill", "steelblue");
-    
+    // svg.select("#graph-container").remove()
+    const container = svg.append("g")
+    .attr("id", "graph-container");
     // numNodes = 12;
     const centerX = width / 2;
     const centerY = height / 2;
@@ -34,7 +40,7 @@ function createFullyConnectedGraph() {
     }));
     const node_radius = 60;
     nodes.forEach(node => {
-        const group = svg.append("g");
+        const group = container.append("g");
         group.append("circle")
             .attr("class", "node")
             .attr("id", node.id)
@@ -113,7 +119,7 @@ function createFullyConnectedGraph() {
         const weight_y = center_weight_y + unitY * weight_offset * offset_value;
         // const next_weight = weights_iter.next().value;
         const linkId = "link" + index;
-        const group = svg.append("g")
+        const group = container.append("g")
             .attr("id", linkId);
         group.append("line")
             .attr("class", "link")
@@ -151,24 +157,29 @@ function createFullyConnectedGraph() {
     for (let w of weights) {
         total_edge_weight += w;
     }
-    var totalWeightDiv = document.createElement("div");
+    const trackingArea = document.getElementById("tracking-area");
+
+    const totalWeightDiv = document.createElement("div");
     totalWeightDiv.className = "total-weight";
     totalWeightDiv.style.position = "absolute";
-    totalWeightDiv.style.left = (width + 20) + "px";
-    totalWeightDiv.style.top = 20 + "px";
+    totalWeightDiv.style.left = "20px";
+    totalWeightDiv.style.top = "20px";
     totalWeightDiv.textContent = "Total Edge Weight: " + total_edge_weight;
     totalWeightDiv.style.fontSize = "20px";
 
-    var accWeightsDiv = document.createElement("div");
+
+    const accWeightsDiv = document.createElement("div");
     accWeightsDiv.className = "acc-weight";
     accWeightsDiv.style.position = "absolute";
-    accWeightsDiv.style.left = (width + 20) + "px";
-    accWeightsDiv.style.top = 120 + "px"; // updated y position to avoid overlap
+    accWeightsDiv.style.left = "20px";
+    accWeightsDiv.style.top = "50px"; // updated y position to avoid overlap
     accWeightsDiv.textContent = "Current Weight: " + acc_weights;
     accWeightsDiv.style.fontSize = "20px";
 
-    document.getElementById("tracking-area").appendChild(totalWeightDiv);
-    document.getElementById("tracking-area").appendChild(accWeightsDiv);
+
+    trackingArea.appendChild(totalWeightDiv);
+    trackingArea.appendChild(accWeightsDiv);
+
     socket.emit("message_command",
         {
             "command": {
@@ -359,4 +370,38 @@ $(`#submit_button`).click(() => {
 // $(document).ready(function () {
 nodes = createFullyConnectedGraph(); // Change the number to create more nodes
 // });
+$(document).ready(
+    socket.on("command", (data) => {
+        if (typeof(data.command === 'object')){
+            if (data.command.event == "new_episode"){
+                const svg = d3.select("#tracking-area svg");
+    
+                // Remove previous graph if it exists
+                svg.select("#graph-container").remove();
+                const totalWeightDiv = document.querySelector(".total-weight");
+                const accWeightDiv = document.querySelector(".acc-weight");
+                if (totalWeightDiv){
+                    totalWeightDiv.remove();
+                }
+                if (accWeightDiv){
+                    accWeightDiv.remove();
+                }
 
+
+                // Read in data
+                numNodes = data.command.size;
+                max_weight = data.command.max_weight;
+                min_weight = data.command.min_weight;
+                acc_weights = 0;
+
+                // Reset Variables
+                path = [];
+                path_links = [];
+                graph = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
+                return_graph = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
+
+                createFullyConnectedGraph();
+            }
+        }
+    })
+)
