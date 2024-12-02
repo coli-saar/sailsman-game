@@ -444,7 +444,7 @@ class Sailsman(TaskBot):
                             "text",
                             {
                                 "message": WELCOME.format(
-                                    message=f"Congrats, you completed the game! You found a joined path that is under the best {score*100}%.", color=STANDARD_COLOR
+                                    message=f"Congrats, you completed the game! You found a joined path that is under the best {score*100:.3f}%.", color=STANDARD_COLOR
                                 ),
                                 "room": room_id,
                                 "html": True
