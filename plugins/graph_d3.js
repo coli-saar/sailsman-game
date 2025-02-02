@@ -3,7 +3,7 @@ max_weight = 10;
 min_weight = 1;
 acc_weights = 0;
 
-numNodes = 3;
+numNodes = 4;
 
 path = [];
 path_links = [];
@@ -195,7 +195,7 @@ function createFullyConnectedGraph() {
         {
             "command": {
                 "event": "update_path",
-                "graph": path
+                "path": path
             },
             "room": self_room,
             "user_id": self_user

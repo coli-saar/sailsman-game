@@ -46,8 +46,11 @@ class Session:
         self.one_minute_timer: RoomTimer = None
         self.graph = {}
         self.path = {}
-        self.counter = 4  # number of rounds to play; the actual number is n+1
-        self.graph_sizes = [6,6,5,4]
+
+        # Change these numbers to adjust the episodes to play. Make sure that len(self.graph_sizes) >= self.number_of_episodes and len(self.max_weights) >= self.number_of_episodes, at best they are equal.
+        self.episode_counter = 4  # number of rounds to play
+        self.graph_sizes = [6,5,4,4] # counted right to left
+        self.max_weights = [12, 10, 8, 6] # counted right to left
         self.submissions = set()
         self.scores = []
 
@@ -69,9 +72,13 @@ class Session:
 
     @property
     def graph_size(self):
-        #  ADAPT THIS FUNCTION ACCORDING TO THE VALUE IN self.counter!
-        assert(self.counter > 0)
-        return self.graph_sizes[self.counter - 1]
+        assert(self.episode_counter > 0)
+        return self.graph_sizes[self.episode_counter - 1]
+
+    @property
+    def max_weight(self):
+        assert(self.episode_counter > 0)
+        return self.max_weights[self.episode_counter - 1]
 
 
 
@@ -105,6 +112,7 @@ class Sailsman(TaskBot):
 
     def on_task_room_creation(self, data): # NOTE: this function does not work?
         room_id = data["room"]
+        logging.debug(f"Room {room_id} was created")
 
         # automatically creates a room if it does not exists (defaultdict)
         this_session = self.session_manager[room_id]
@@ -131,20 +139,14 @@ class Sailsman(TaskBot):
             }
         )
 
-        # add users to this session
-        for usr in data["users"]:
-            this_session.players.append(usr)
-
-            # map a dictionary user_id: last board
-            this_session.latest_board[usr["id"]] = None
 
         # manually adding the LLM bot
-        LLM_bot_user = {'id':000, 'name':"BOT"}
-        this_session.players.append(LLM_bot_user)
+        # LLM_bot_user = {'id':000, 'name':"BOT"}
+        # this_session.players.append(LLM_bot_user)
 
         # [{'name': 'pillow', 'x': 642, 'y': 548}, {'name': 'garbage', 'x': 418, 'y': 281}, {'name': 'cap', 'x': 667, 'y': 502}, {'name': 'cowboy', 'x': 657, 'y': 518}, {'name': 'pants', 'x': 368, 'y': 618}]
 
-        logging.debug(f"USERS: {this_session.players}, usr: {usr}")
+        # logging.debug(f"USERS: {this_session.players}, usr: {usr}")
 
         self.move_divider(room_id, chat_area=25, task_area=75) # resize chat area
 
@@ -210,10 +212,26 @@ class Sailsman(TaskBot):
             room_id(int): the room for which to calculate the score.
         
         Return:
-            score(int): The percentile of the combined sum of weights with respect to all possible paths. 1 is the 100 percentile, the best possible path.
+            percentile_score(float): The percentile of the combined sum of weights with respect to all possible paths. 0 is the best possible path.
+            gold_path(tuple[int]): The best possible path.
+            gold_cost(): Cost of the best possible path.
+            path_cost(): Cost of the combined chosen paths.
         
         '''
         def calculate_tsp_score(graph, path):
+            """Calculates values for all paths in a given graph.
+
+            Parameters:
+                graph(list[list[int]]): A list of lists, giving the edge weights from each index (node) to every other index (every other node).
+                path(list[int]): A list of nodes.
+
+            Return:
+                cost_percentile(float): The score percentile in which the path falls with respect to all other possible paths.
+                best_path(tuple[int]): The best possible path.
+                best_cost(int): Cost of the best path.
+                path_cost(int): Cost of the given path.
+
+            """
             nodes = len(graph)
             perms = list(permutations(list(range(1, nodes)))) # Start node = 0
             path_cost = 0
@@ -228,12 +246,12 @@ class Sailsman(TaskBot):
                     cost += graph[path[i]][path[i+1]]
 
                 costs.append(cost)
-            costs_indexed = [(i, costs[i]) for i in range(len(costs))]
+            costs_indexed = [(i, costs[i]) for i in range(len(costs))] # should be simplified with enumerate
             costs_indexed.sort(key=lambda x: x[1])
             costs.sort()
             index = bisect_left(costs, path_cost)
             percentile = index / (len(costs) - 1)
-            best_path = perms[costs_indexed[0][0]]
+            best_path = (0,) + perms[costs_indexed[0][0]] + (0,) # get the index of the lowest cost and take its permutation. Add start and end node.
             # print(f"cost: {path_cost}")
             # print(f"best path cost: {costs[0]}")
             # print(f"index: {index}")
@@ -251,13 +269,13 @@ class Sailsman(TaskBot):
             combined_graph[i] = [nodes[x] + combined_graph[i][x] for x in range(len(nodes))]
         path = session.path[user_ids[0]] #Take either of the two paths as they are identical
         path = path + [path[0]] #add start-node as end-node as well
-        score, gold_path, gold_cost, path_cost = calculate_tsp_score(combined_graph, path)
-        logging.debug(f"Best Path was: {gold_path}")
-        logging.debug(f"lowest weights was: {gold_cost}")
-        logging.debug(f"Chosen path was: {path_cost}")
+        percentile_score, gold_path, gold_cost, path_cost = calculate_tsp_score(combined_graph, path)
+        # logging.debug(f"Best Path was: {gold_path}")
+        # logging.debug(f"lowest weights was: {gold_cost}")
+        # logging.debug(f"Chosen path was: {path_cost}")
             
 
-        return score
+        return percentile_score, gold_path, gold_cost, path_cost
 
     def confirmation_code(self, room_id, bonus, receiver_id=None):
         """ Generate token that will be sent to each player. """
@@ -369,7 +387,7 @@ class Sailsman(TaskBot):
             this_session = self.session_manager[room_id]
 
             # logging.debug(f'THIS SESSION:\t{this_session}')
-            self.log_event("board_logging", {"board": this_session.path}, room_id) # log the bot's changes to log files
+            # self.log_event("board_logging", {"board": this_session.path}, room_id) # log the bot's changes to log files
 
             logging.debug(this_session.path)
 
@@ -409,9 +427,10 @@ class Sailsman(TaskBot):
             else:
                 if data["command"] == "stop":
                     
-                    # retrieve latest board and calculate score
-                    # board1, board2 = list(this_session.latest_board.values())
+                    # retreive the currently selected paths of both players. paths is a list of list of nodes.
                     paths = list(this_session.path.values())
+
+                    # Check whether both players have selected some path
                     if len(paths) < 2:
                         self.sio.emit(
                             "text",
@@ -424,6 +443,8 @@ class Sailsman(TaskBot):
                             },
                         )
                         return
+                    
+                    # Check whether paths are equal
                     if paths[0] != paths[1]:
                         self.sio.emit(
                             "text",
@@ -436,6 +457,8 @@ class Sailsman(TaskBot):
                             },
                         )
                         return
+                    
+                    # Check that the paths visit every node once.
                     if len(paths[0]) != len(list(this_session.graph.values())[0]):
                         self.sio.emit(
                             "text",
@@ -449,26 +472,26 @@ class Sailsman(TaskBot):
                         )
                         return
                     
-                    score = self.calculate_score(room_id)
-                    self.log_event("score", {"score": score}, room_id)
-                    this_session.counter -= 1
-                    # # log extra event (score event)
-                    # self.log_event("score", {"score": score}, room_id)
-                    # self.log_event("board_logging", {"board": this_session.latest_board}, room_id)
+                    percentile_score, gold_path, gold_value, combined_paths_value = self.calculate_score(room_id)
 
-                    # this_session.timer.reset(TIMEOUT_TIMER)
-                    # this_session.halfway_timer.reset(TIMEOUT_TIMER/2)
-                    # this_session.one_minute_timer.reset(TIMEOUT_TIMER-1)
+                    #Log Scores
+                    log_dict = {
+                        "percentile score": percentile_score,
+                        "best possible path": gold_path,
+                        "value of best possible path": gold_value,
+                        "value of combined chosen path": combined_paths_value}
+                    
+                    self.log_event("submit", log_dict, room_id)
 
-                    # this_session.scores += [score] # add the score to the list of scores
+                    # Start next session
+                    this_session.episode_counter -= 1
 
-                    # this_session.submissions = set() # empty the list of who submitted (for next round)
-                    if this_session.counter > 0:
+                    if this_session.episode_counter > 0:
                         self.sio.emit(
                                 "text",
                                 {
                                     "message": COLOR_MESSAGE.format(
-                                        message=f"Congrats, you found a joined path that is under the best {score*100:.3f}%. Please wait for the next episode to start.", color=SUCCESS_COLOR
+                                        message=f"Congrats, you found a joined path with a score of {int((1-percentile_score)*100)}. Please wait for the next episode to start.", color=SUCCESS_COLOR
                                     ),
                                     "room": room_id,
                                     "html": True
@@ -481,7 +504,7 @@ class Sailsman(TaskBot):
                             "command": {
                                 "event": "new_episode",
                                 "size": this_session.graph_size,
-                                "max_weight": 15,
+                                "max_weight": this_session.max_weight,
                                 "min_weight": 1
                             },
                             "room": room_id
@@ -493,7 +516,7 @@ class Sailsman(TaskBot):
                                 "text",
                                 {
                                     "message": COLOR_MESSAGE.format(
-                                        message=f"Congrats, you completed the game! You found a joined path that is under the best {score*100:.3f}%.", color=SUCCESS_COLOR
+                                        message=f"Congrats, you completed the game! You found a joined path with a score of {int((1-percentile_score)*100)}.", color=SUCCESS_COLOR
                                     ),
                                     "room": room_id,
                                     "html": True
