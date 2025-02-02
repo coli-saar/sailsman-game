@@ -41,7 +41,8 @@ class RoomTimer:
 class Session:
     def __init__(self):
         self.players = []
-        self.timer: RoomTimer = None
+        self.episode_timer = None
+        # self.timer: RoomTimer = None
         self.halfway_timer: RoomTimer = None
         self.one_minute_timer: RoomTimer = None
         self.graph = {}
@@ -49,36 +50,41 @@ class Session:
 
         # Change these numbers to adjust the episodes to play. Make sure that len(self.graph_sizes) >= self.number_of_episodes and len(self.max_weights) >= self.number_of_episodes, at best they are equal.
         self.episode_counter = 4  # number of rounds to play
-        self.graph_sizes = [6,5,4,4] # counted right to left
+        self.graph_sizes = [6, 5, 4, 4] # counted right to left
+        assert(self.episode_counter == len(self.graph_sizes))
         self.max_weights = [12, 10, 8, 6] # counted right to left
+        assert(self.episode_counter == len(self.max_weights))
+        self.episode_times = [10, 8, 5, 7] # counted right to left
+        assert(self.episode_counter == len(self.episode_times))
         self.submissions = set()
         self.scores = []
 
     def close(self):
-        if self.timer:
-            self.timer.cancel()
-        else:
-            logging.debug("Tried to cancel timer, but this Session had no timer")
+        self.cancel_timers()
+
+    def cancel_timers(self):
+        if self.episode_timer:
+            self.episode_timer.cancel()
         if self.halfway_timer:
-            self.timer.cancel()
-        else:
-            logging.debug("Tried to cancel halfway_timer, but this Session had no halfway_timer")
+            self.halfway_timer.cancel()
         if self.one_minute_timer:
-            self.timer.cancel()
-        else:
-            logging.debug("Tried to cancel one_minute_timer, but this Session had no one_minute_timer")
-        # self.halfway_timer.cancel()
-        # self.one_minute_timer.cancel()
+            self.one_minute_timer.cancel()
+
+    def next_episode(self):
+        self.episode_counter -= 1
+        self.cancel_timers()
 
     @property
     def graph_size(self):
-        assert(self.episode_counter > 0)
-        return self.graph_sizes[self.episode_counter - 1]
+        return self.graph_sizes[self.episode_counter]
 
     @property
     def max_weight(self):
-        assert(self.episode_counter > 0)
-        return self.max_weights[self.episode_counter - 1]
+        return self.max_weights[self.episode_counter]
+
+    @property
+    def time(self):
+        return self.episode_times[self.episode_counter]
 
 
 
@@ -110,55 +116,50 @@ class Sailsman(TaskBot):
     session_manager = SessionManager(Session)
     data_collection = "AMT"
 
-    def on_task_room_creation(self, data): # NOTE: this function does not work?
+    def on_task_room_creation(self, data): # function doesn't get called in --dev mode
         room_id = data["room"]
         logging.debug(f"Room {room_id} was created")
 
         # automatically creates a room if it does not exists (defaultdict)
-        this_session = self.session_manager[room_id]
-        this_session.timer = RoomTimer(
-            self.close_room_timeout, room_id, TIMEOUT_TIMER
-        )
-        this_session.halfway_timer = RoomTimer(
-            self.warning_timer_half, room_id, TIMEOUT_TIMER//2
-        )
+        # this_session = self.session_manager[room_id]
+        # this_session.episode_timer = RoomTimer(
+        #     self._start_new_episode, room_id, this_session.time
+        # )
+        # this_session.timer = RoomTimer(
+        #     self.close_room_timeout, room_id, TIMEOUT_TIMER
+        # )
+        # this_session.halfway_timer = RoomTimer(
+        #     self.warning_timer_half, room_id, this_session.time / 2
+        # )
 
-        this_session.one_minute_timer = RoomTimer(
-            self.warning_timer_one_min, room_id, TIMEOUT_TIMER-1
-        )
-        self.sio.emit(
-            "message_command",
-            {
-                "command": {
-                    "event": "new_episode",
-                    "size": this_session.graph_size,
-                    "max_weight": 10,
-                    "min_weight": 1
-                },
-                "room": room_id
-            }
-        )
-
-
-        # manually adding the LLM bot
-        # LLM_bot_user = {'id':000, 'name':"BOT"}
-        # this_session.players.append(LLM_bot_user)
-
-        # [{'name': 'pillow', 'x': 642, 'y': 548}, {'name': 'garbage', 'x': 418, 'y': 281}, {'name': 'cap', 'x': 667, 'y': 502}, {'name': 'cowboy', 'x': 657, 'y': 518}, {'name': 'pants', 'x': 368, 'y': 618}]
-
-        # logging.debug(f"USERS: {this_session.players}, usr: {usr}")
+        # this_session.one_minute_timer = RoomTimer(
+        #     self.warning_timer_one_min, room_id, this_session.time - 1
+        # )
+        # self.sio.emit(
+        #     "message_command",
+        #     {
+        #         "command": {
+        #             "event": "new_episode",
+        #             "size": this_session.graph_size,
+        #             "max_weight": 10,
+        #             "min_weight": 1
+        #         },
+        #         "room": room_id
+        #     }
+        # )
+        self._start_new_episode(room_id)
 
         self.move_divider(room_id, chat_area=25, task_area=75) # resize chat area
 
     def warning_timer_half(self, room_id):
 
-        # message - There are 6 minutes left of this round.
+        current_session = self.session_manager[room_id]
         self.sio.emit(
             "text",
             {
                 "message": COLOR_MESSAGE.format(
             color=WARNING_COLOR,
-            message=f"Halfway done. There are {TIMEOUT_TIMER//2} minutes left.",
+            message=f"Halfway done. There are {current_session.time / 2} minutes left.",
             ),
                 "room": room_id,
                 "html": True
@@ -178,6 +179,22 @@ class Sailsman(TaskBot):
                 "html": True
             },
         )
+
+    def episode_timeout(self, room_id):
+        # current_session = self.session_manager[room_id]
+        self.sio.emit(
+            "text",
+            {
+                "message": COLOR_MESSAGE.format(
+            color=WARNING_COLOR,
+            message="Ooops the time for this episode went out. ",
+            ),
+                "room": room_id,
+                "html": True
+            },
+        )
+        self.log_event("session_timeout", {}, room_id)
+        self._start_new_episode(room_id)
 
     def close_room(self, room_id):
         self.room_to_read_only(room_id)
@@ -276,6 +293,67 @@ class Sailsman(TaskBot):
             
 
         return percentile_score, gold_path, gold_cost, path_cost
+
+    def _start_new_episode(self, room_id):
+        sleep(0.5)
+        current_session = self.session_manager[room_id]
+        current_session.next_episode()
+        if current_session.episode_counter >= 0:
+            # current_session = self.session_manager[room_id]
+            current_session.episode_timer = RoomTimer(
+                self.episode_timeout, room_id, current_session.time
+            )
+            current_session.halfway_timer = RoomTimer(
+                self.warning_timer_half, room_id, current_session.time / 2
+            )
+
+            current_session.one_minute_timer = RoomTimer(
+                self.warning_timer_one_min, room_id, current_session.time - 1
+            )
+            message = f"This is episode {4 - current_session.episode_counter} out of 4 episode for you to complete.\n You have {current_session.time} minutes to complete this episode."
+            self.sio.emit(
+                    "text",
+                    {
+                        "message": WELCOME.format(
+                            message=message, color=STANDARD_COLOR
+                        ),
+                        "room": room_id,
+                        "html": True
+                    },
+                )
+            
+            self.sio.emit(
+                "message_command",
+                {
+                "command": {
+                    "event": "new_episode",
+                    "size": current_session.graph_size,
+                    "max_weight": current_session.max_weight,
+                    "min_weight": 1
+                },
+                "room": room_id
+                }
+            )
+                        
+        else:
+            # Eventually put prolific code here
+            complete_message = "Congrats, you finished the game!"
+            self.sio.emit(
+                    "text",
+                    {
+                        "message": WELCOME.format(
+                            message=complete_message, color=STANDARD_COLOR
+                        ),
+                        "room": room_id,
+                        "html": True
+                    },
+                )
+            # What does this do?
+            for usr in current_session.players:
+                self.confirmation_code(room_id=room_id, bonus=5, receiver_id=usr["id"])
+
+            self.close_room(room_id)
+        
 
     def confirmation_code(self, room_id, bonus, receiver_id=None):
         """ Generate token that will be sent to each player. """
@@ -482,50 +560,39 @@ class Sailsman(TaskBot):
                         "value of combined chosen path": combined_paths_value}
                     
                     self.log_event("submit", log_dict, room_id)
+                    self.sio.emit(
+                            "text",
+                            {
+                                "message": COLOR_MESSAGE.format(
+                                    message=f"Congrats, you found a joined path with a score of {int((1-percentile_score)*100)}.", color=SUCCESS_COLOR
+                                ),
+                                "room": room_id,
+                                "html": True
+                            },
+                        )
 
                     # Start next session
-                    this_session.episode_counter -= 1
+                    self._start_new_episode(room_id)
+                    # this_session.episode_counter -= 1
 
-                    if this_session.episode_counter > 0:
-                        self.sio.emit(
-                                "text",
-                                {
-                                    "message": COLOR_MESSAGE.format(
-                                        message=f"Congrats, you found a joined path with a score of {int((1-percentile_score)*100)}. Please wait for the next episode to start.", color=SUCCESS_COLOR
-                                    ),
-                                    "room": room_id,
-                                    "html": True
-                                },
-                            )
-                        sleep(0.5)
-                        self.sio.emit(
-                            "message_command",
-                            {
-                            "command": {
-                                "event": "new_episode",
-                                "size": this_session.graph_size,
-                                "max_weight": this_session.max_weight,
-                                "min_weight": 1
-                            },
-                            "room": room_id
-                            }
+                    # if this_session.episode_counter > 0:
+                    #     sleep(0.5)
+                        
+                    # else:
+                    #     self.sio.emit(
+                    #             "text",
+                    #             {
+                    #                 "message": COLOR_MESSAGE.format(
+                    #                     message=f"Congrats, you completed the game! You found a joined path with a score of {int((1-percentile_score)*100)}.", color=SUCCESS_COLOR
+                    #                 ),
+                    #                 "room": room_id,
+                    #                 "html": True
+                    #             },
+                    #         )
+                    #     for usr in this_session.players:
+                    #         self.confirmation_code(room_id=room_id, bonus=5, receiver_id=usr["id"])
 
-                        )
-                    else:
-                        self.sio.emit(
-                                "text",
-                                {
-                                    "message": COLOR_MESSAGE.format(
-                                        message=f"Congrats, you completed the game! You found a joined path with a score of {int((1-percentile_score)*100)}.", color=SUCCESS_COLOR
-                                    ),
-                                    "room": room_id,
-                                    "html": True
-                                },
-                            )
-                        for usr in this_session.players:
-                            self.confirmation_code(room_id=room_id, bonus=5, receiver_id=usr["id"])
-
-                        self.close_room(room_id)
+                    #     self.close_room(room_id)
                     # if this_session.counter == 0: # if this is the last round
                         
                     #     # Inform users the experiment is over and give them the last score
