@@ -10,6 +10,12 @@ path_links = [];
 graph = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
 return_graph = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
 
+const trackingArea = document.getElementById("tracking-area");
+const nodeLabels = [['L', 'Living Room'], ['K', 'Kitchen'], ['B', 'Bathroom'], ['F', 'Front Porch'], ['A', 'Attic'], ['O', 'Office']];
+// const legend = document.createElement("table");
+// legend.style.position = "absolute";
+
+
 function createFullyConnectedGraph() {
     const width = 1024;
     const height = 768;
@@ -41,6 +47,7 @@ function createFullyConnectedGraph() {
     const node_radius = 60;
     nodes.forEach(node => {
         const group = container.append("g");
+        let node_label = nodeLabels[node.id][0];
         group.append("circle")
             .attr("class", "node")
             .attr("id", node.id)
@@ -65,14 +72,22 @@ function createFullyConnectedGraph() {
             .attr("y", node.y)
             .attr("text-anchor", "middle")
             .attr("dominant-baseline", "central")
-            .text(node.id + 1)
+            // .text(node.id + 1)
+            .text(node_label)
             .attr("fill", "black")
             .style("pointer-events", "none");
         group.select("text")
             .style("font-size", "30pt");
 
     })
-                      
+    
+    updateLegend(numNodes);
+    const legend = document.getElementById("legend");
+    const legendWidth = legend.offsetWidth;
+    legend.style.right = `${margin - legendWidth}px`;
+
+
+
     // Generate links (fully connected)
     const links = [];
     for (let i = 0; i < nodes.length; i++) {
@@ -157,27 +172,30 @@ function createFullyConnectedGraph() {
     for (let w of weights) {
         total_edge_weight += w;
     }
-    const trackingArea = document.getElementById("tracking-area");
+    // const trackingArea = document.getElementById("tracking-area");
 
-    const totalWeightDiv = document.createElement("div");
-    totalWeightDiv.className = "total-weight";
-    totalWeightDiv.style.position = "absolute";
-    totalWeightDiv.style.left = "20px";
-    totalWeightDiv.style.top = "20px";
-    totalWeightDiv.textContent = "Total Edge Weight: " + total_edge_weight;
-    totalWeightDiv.style.fontSize = "20px";
+    // Removed for less information on the screen
+
+    // const totalWeightDiv = document.createElement("div");
+    // totalWeightDiv.className = "total-weight";
+    // totalWeightDiv.style.position = "absolute";
+    // totalWeightDiv.style.left = "20px";
+    // totalWeightDiv.style.top = "20px";
+    // totalWeightDiv.textContent = "Total Edge Weight: " + total_edge_weight;
+    // totalWeightDiv.style.fontSize = "20px";
 
 
     const accWeightsDiv = document.createElement("div");
     accWeightsDiv.className = "acc-weight";
     accWeightsDiv.style.position = "absolute";
     accWeightsDiv.style.left = "20px";
-    accWeightsDiv.style.top = "50px"; // updated y position to avoid overlap
-    accWeightsDiv.textContent = "Current Weight: " + acc_weights;
-    accWeightsDiv.style.fontSize = "20px";
+    accWeightsDiv.style.top = "80px"; // updated y position to avoid overlap
+    accWeightsDiv.textContent = "\u{1FA99}: " + acc_weights;
+    accWeightsDiv.style.fontSize = "30px";
 
 
-    trackingArea.appendChild(totalWeightDiv);
+
+    // trackingArea.appendChild(totalWeightDiv);
     trackingArea.appendChild(accWeightsDiv);
 
     socket.emit("message_command",
@@ -203,6 +221,61 @@ function createFullyConnectedGraph() {
     )
     return nodes;
 }
+
+function updateLegend(numRows) {
+    // Get or create the table element
+    let table = document.getElementById("legend");
+    if (!table) {
+        table = document.createElement("table");
+        table.id = "legend";
+        table.style.position = "absolute";
+        table.style.top = "50px";
+        // table.style.right = "-50px";
+        trackingArea.appendChild(table);
+    }
+    
+    // Clear existing table content
+    table.innerHTML = "";
+
+    // Create table header
+    // let thead = document.createElement("thead");
+    // let headerRow = document.createElement("tr");
+    
+    // let th1 = document.createElement("th");
+    // th1.textContent = "Legend";
+    // let th2 = document.createElement("th"); // Empty second header
+    
+    // headerRow.appendChild(th1);
+    // headerRow.appendChild(th2);
+    // thead.appendChild(headerRow);
+    // table.appendChild(thead);
+
+    // Create table body and populate with node labels
+    let tbody = document.createElement("tbody");
+    
+    nodeLabels.slice(0, numRows).forEach(([label, name]) => {
+        let row = document.createElement("tr");
+        
+        let td1 = document.createElement("td");
+        td1.style.textAlign = "left";
+        td1.style.fontSize = "30px";
+        td1.style.fontWeight = "bold";
+        td1.style.padding = "5px 20px"
+        td1.textContent = label;
+        let td2 = document.createElement("td");
+        td2.style.textAlign = "left";
+        td2.style.fontSize = "30px";
+        td2.style.padding = "10px 20px"
+        td2.textContent = name;
+        
+        row.appendChild(td1);
+        row.appendChild(td2);
+        tbody.appendChild(row);
+    });
+
+    table.appendChild(tbody);
+}
+
 
 function clickNode(clickedNode){
     // console.log("clicke node: " + clickedNode.id);
@@ -284,7 +357,7 @@ function updateWeights(){
         acc_weights += parseInt(linkElement.select("text").text(), 10);
     }
     const accWeigthDiv = document.querySelector(".acc-weight");
-    accWeigthDiv.textContent = "Current Weight: " + acc_weights;
+    accWeigthDiv.textContent = "\u{1FA99}: " + acc_weights;
 }
 
 function pushNode(node){
