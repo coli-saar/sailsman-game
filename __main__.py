@@ -49,12 +49,12 @@ class Session:
         self.path = {}
 
         # Change these numbers to adjust the episodes to play. Make sure that len(self.graph_sizes) >= self.number_of_episodes and len(self.max_weights) >= self.number_of_episodes, at best they are equal.
-        self.episode_counter = 4  # number of rounds to play
-        self.graph_sizes = [6, 5, 4, 4] # counted right to left
+        self.episode_counter = 2  # number of rounds to play
+        self.graph_sizes = [5, 4] # counted right to left
         assert(self.episode_counter == len(self.graph_sizes))
-        self.max_weights = [12, 10, 8, 6] # counted right to left
+        self.max_weights = [10, 10] # counted right to left
         assert(self.episode_counter == len(self.max_weights))
-        self.episode_times = [10, 8, 5, 7] # counted right to left
+        self.episode_times = [8, 7] # counted right to left
         assert(self.episode_counter == len(self.episode_times))
         self.submissions = set()
         self.scores = []
@@ -120,36 +120,10 @@ class Sailsman(TaskBot):
         room_id = data["room"]
         logging.debug(f"Room {room_id} was created")
 
-        # automatically creates a room if it does not exists (defaultdict)
-        # this_session = self.session_manager[room_id]
-        # this_session.episode_timer = RoomTimer(
-        #     self._start_new_episode, room_id, this_session.time
-        # )
-        # this_session.timer = RoomTimer(
-        #     self.close_room_timeout, room_id, TIMEOUT_TIMER
-        # )
-        # this_session.halfway_timer = RoomTimer(
-        #     self.warning_timer_half, room_id, this_session.time / 2
-        # )
-
-        # this_session.one_minute_timer = RoomTimer(
-        #     self.warning_timer_one_min, room_id, this_session.time - 1
-        # )
-        # self.sio.emit(
-        #     "message_command",
-        #     {
-        #         "command": {
-        #             "event": "new_episode",
-        #             "size": this_session.graph_size,
-        #             "max_weight": 10,
-        #             "min_weight": 1
-        #         },
-        #         "room": room_id
-        #     }
-        # )
+        # sleep(10)
         self._start_new_episode(room_id)
-
         self.move_divider(room_id, chat_area=25, task_area=75) # resize chat area
+
 
     def warning_timer_half(self, room_id):
 
@@ -181,7 +155,6 @@ class Sailsman(TaskBot):
         )
 
     def episode_timeout(self, room_id):
-        # current_session = self.session_manager[room_id]
         self.sio.emit(
             "text",
             {
@@ -202,24 +175,22 @@ class Sailsman(TaskBot):
         # delete data structures
         self.session_manager.clear_session(room_id)
 
-    def close_room_timeout(self, room_id):
+    def send_prolific_code(self, room_id):
         
         # the messages including the unique ID to be copied to the survey
+        message = "Congratulations! You've completed the study. Here is your completion code: CETJD9OZ. Please paste it into Prolific in order to be eligible for compensation."
         self.sio.emit(
             "text",
             {
                 "message": COLOR_MESSAGE.format(
             color=WARNING_COLOR,
-            message="You took too long and were disconnected. Please paste the following code into Prolific: C10AVA0Z",
+            message=message
             ),
                 "room": room_id,
                 "html": True
             },
         )
-        self.room_to_read_only(room_id)
-
-        # delete data structures
-        self.session_manager.clear_session(room_id)
+    
 
     def calculate_score(self, room_id):
 
@@ -269,10 +240,6 @@ class Sailsman(TaskBot):
             index = bisect_left(costs, path_cost)
             percentile = index / (len(costs) - 1)
             best_path = (0,) + perms[costs_indexed[0][0]] + (0,) # get the index of the lowest cost and take its permutation. Add start and end node.
-            # print(f"cost: {path_cost}")
-            # print(f"best path cost: {costs[0]}")
-            # print(f"index: {index}")
-            # print(f"overall paths: {len(costs)}")
             
             return percentile, best_path, costs[0], path_cost
         
@@ -287,19 +254,14 @@ class Sailsman(TaskBot):
         path = session.path[user_ids[0]] #Take either of the two paths as they are identical
         path = path + [path[0]] #add start-node as end-node as well
         percentile_score, gold_path, gold_cost, path_cost = calculate_tsp_score(combined_graph, path)
-        # logging.debug(f"Best Path was: {gold_path}")
-        # logging.debug(f"lowest weights was: {gold_cost}")
-        # logging.debug(f"Chosen path was: {path_cost}")
-            
 
         return percentile_score, gold_path, gold_cost, path_cost
 
     def _start_new_episode(self, room_id):
-        sleep(0.5)
+        sleep(1)
         current_session = self.session_manager[room_id]
         current_session.next_episode()
         if current_session.episode_counter >= 0:
-            # current_session = self.session_manager[room_id]
             current_session.episode_timer = RoomTimer(
                 self.episode_timeout, room_id, current_session.time
             )
@@ -310,7 +272,7 @@ class Sailsman(TaskBot):
             current_session.one_minute_timer = RoomTimer(
                 self.warning_timer_one_min, room_id, current_session.time - 1
             )
-            message = f"This is episode {4 - current_session.episode_counter} out of 4 episode for you to complete.\n You have {current_session.time} minutes to complete this episode."
+            message = f"This is episode {len(current_session.graph_sizes) - current_session.episode_counter} out of {len(current_session.graph_sizes)} episodes for you to complete.\n You have {current_session.time} minutes to complete this episode."
             self.sio.emit(
                     "text",
                     {
@@ -336,33 +298,17 @@ class Sailsman(TaskBot):
             )
                         
         else:
-            # Eventually put prolific code here
-            complete_message = "Congrats, you finished the game!"
-            self.sio.emit(
-                    "text",
-                    {
-                        "message": WELCOME.format(
-                            message=complete_message, color=STANDARD_COLOR
-                        ),
-                        "room": room_id,
-                        "html": True
-                    },
-                )
-            # What does this do?
-            for usr in current_session.players:
-                self.confirmation_code(room_id=room_id, bonus=5, receiver_id=usr["id"])
+            self.send_prolific_code(room_id)
 
             self.close_room(room_id)
         
 
-    def confirmation_code(self, room_id, bonus, receiver_id=None):
+    def confirmation_code(self, room_id, bonus, receiver_id=None): #When should this be used?
         """ Generate token that will be sent to each player. """
         kwargs = {}
         # either only for one user or for both
         if receiver_id is not None:
             kwargs["receiver_id"] = receiver_id
-
-#        confirmation_token = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
         if bonus:
             confirmation_token = "BONUSCODE"
@@ -427,18 +373,15 @@ class Sailsman(TaskBot):
             else:
                 logging.error("No room_id provided in joined_room data")
 
-            # user_id = data["user"]["id"]
-            # other_user = [usr for usr in self.users_global if usr != user_id]
-
-            # read out task greeting
-            lines = ["*Welcome to the Sailsman game!*",
-                     "--------------------------------",
-                     """You and your partner are each seeing a graph. They are exactly the same, except for the different values on each edge (line) between nodes (circles). These values represent the time it takes to walk along each edge.""",
-                     """**Your Goal** is to work together to choose the same path that visits every node exactly once and minimizes the total time (the sum of both your paths). You can talk to your partner using the chat — please use English only.""",
-                     """**You Choose a Path** by clicking on a node to move there. To go back, click on a node you’ve already visited. You start at node 1. To **Finish the Game**, either of you can click the submit button once both paths are identical and complete.""",
-                     "*NOTE*: before you start, make sure to **resize your chat** so that the entire graph on the right is visible.",
-                     """*NOTE*: You can only submit if both paths are the same and both players have visited every node. If this is not the case, you will get a message, telling you what's missing.""",
-                     "--------------------------------"]
+            sleep(0.5)
+            lines = ["Welcome to the game!",
+                "----------------------",
+                "You and your partner are each seeing a graph representation of the same house 🏠. The **circles** represent the rooms, and the **lines** represent the hallways between them, containing 🪙 **coins** 🪙 (the numbers on the lines). ",
+                "**Task:** *Travel through the rooms in the same order* as your partner, and visit each room *only **once***, while getting *as many total coins as possible*. Use the chat to agree on a path. Please only communicate in English.",
+                "**Score:** Your reward will be an *even split of all the coins you and your partner have collected together* on the path you chose, so try to get as many as possible.",
+                "**Mechanics:** To select a path, **click** on the room you wish to visit. To go back, click on the room you visited previously. You may revise your path during the round, but your final path must be **identical**. To end the round, either you or your partner should click the blue **SUBMIT** button.",
+                "⚠️ **IMPORTANT** ⚠️: DO NOT refresh your browser. Only identical paths can be submitted. You start in the *living room* (L).",
+                "Wait for the first episode to start."]
 
             for line in lines:
             
@@ -463,9 +406,6 @@ class Sailsman(TaskBot):
             logging.debug(f"message received")
 
             this_session = self.session_manager[room_id]
-
-            # logging.debug(f'THIS SESSION:\t{this_session}')
-            # self.log_event("board_logging", {"board": this_session.path}, room_id) # log the bot's changes to log files
 
             logging.debug(this_session.path)
 
@@ -560,81 +500,31 @@ class Sailsman(TaskBot):
                         "value of combined chosen path": combined_paths_value}
                     
                     self.log_event("submit", log_dict, room_id)
+
+                    score = int((1-percentile_score)*100)
+                    message = f"Your score is {score}."
+                    if score < 25:
+                        message += "That's ok."
+                    elif score < 75:
+                        message += f"That's a fine result."
+                    elif score < 100:
+                        message = f"Congrats, you found a joint path with a score of {score}. That's really good!"
+                    else:
+                        message = f"You found the best path! You scored {score} points."
+
                     self.sio.emit(
                             "text",
                             {
                                 "message": COLOR_MESSAGE.format(
-                                    message=f"Congrats, you found a joined path with a score of {int((1-percentile_score)*100)}.", color=SUCCESS_COLOR
+                                    message=message, color=SUCCESS_COLOR
                                 ),
                                 "room": room_id,
                                 "html": True
                             },
                         )
 
-                    # Start next session
+                    # Start next episode
                     self._start_new_episode(room_id)
-                    # this_session.episode_counter -= 1
-
-                    # if this_session.episode_counter > 0:
-                    #     sleep(0.5)
-                        
-                    # else:
-                    #     self.sio.emit(
-                    #             "text",
-                    #             {
-                    #                 "message": COLOR_MESSAGE.format(
-                    #                     message=f"Congrats, you completed the game! You found a joined path with a score of {int((1-percentile_score)*100)}.", color=SUCCESS_COLOR
-                    #                 ),
-                    #                 "room": room_id,
-                    #                 "html": True
-                    #             },
-                    #         )
-                    #     for usr in this_session.players:
-                    #         self.confirmation_code(room_id=room_id, bonus=5, receiver_id=usr["id"])
-
-                    #     self.close_room(room_id)
-                    # if this_session.counter == 0: # if this is the last round
-                        
-                    #     # Inform users the experiment is over and give them the last score
-                    #     msg = f"Your score is {score}. Thank you for playing! Please wait for your unique ID token."
-                    #     self.sio.emit(
-                    #         "text",
-                    #         {
-                    #             "message": COLOR_MESSAGE.format(message=msg, color=SUCCESS_COLOR),
-                    #             "room": room_id,
-                    #             "html": True,
-                    #         },
-                    #     )
-
-                    #     bonus = any(el >= 99 for el in this_session.scores)
-
-                        # Generating and showing the AMT token
-
-                    # else: # if there's more rounds to play
-                    #     this_session.counter -= 1
-                    #     msg = f"Your score is {-1}. The round is over. Please wait for the next round to start."
-
-                    #     self.sio.emit(
-                    #         "text",
-                    #         {
-                    #             "message": COLOR_MESSAGE.format(message=msg, color=SUCCESS_COLOR),
-                    #             "room": room_id,
-                    #             "html": True,
-                    #         },
-                    #     )
-
-                    #     sleep(0.5)
-
-                    #     # run the new_episode command from the js pluging (placement.js); for resetting the front-end
-                    #     self.sio.emit(
-                    #         "message_command",
-                    #         {
-                    #             "command": {
-                    #                 "event": "new_episode"
-                    #             },
-                    #             "room": room_id,
-                    #         },
-                    #     )
 
     def room_to_read_only(self, room_id):
         """Set room to read only."""

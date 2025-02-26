@@ -441,7 +441,7 @@ $(`#submit_button`).click(() => {
 // )
 // Call the function to create the graph
 // $(document).ready(function () {
-// nodes = createFullyConnectedGraph(); // Change the number to create more nodes
+nodes = createFullyConnectedGraph(); // Change the number to create more nodes
 // });
 $(document).ready(
     socket.on("command", (data) => {
