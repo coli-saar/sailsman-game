@@ -1,9 +1,17 @@
-
 max_weight = 10;
 min_weight = 1;
 acc_weights = 0;
 
-numNodes = 4;
+numNodes = 4; // Don't make number of nodes greater the number of available paths
+const imagePaths = [
+    "/static/assets/images/living-room.png",
+    "/static/assets/images/kitchen.png",
+    "/static/assets/images/garden.png",
+    "/static/assets/images/play-room.png",
+    "/static/assets/images/attic.png",
+    "/static/assets/images/bathroom.png"
+];
+const backgroundColor = "#E5E7E9";
 
 path = [];
 path_links = [];
@@ -44,49 +52,7 @@ function createFullyConnectedGraph() {
         x: centerX + radius * Math.cos(2 * Math.PI * i / numNodes), // Adjust for button width
         y: centerY + radius * Math.sin(2 * Math.PI * i / numNodes) // Adjust for button height
     }));
-    const node_radius = 60;
-    nodes.forEach(node => {
-        const group = container.append("g");
-        let node_label = nodeLabels[node.id][0];
-        group.append("circle")
-            .attr("class", "node")
-            .attr("id", node.id)
-            .attr("cx", node.x)
-            .attr("cy", node.y)
-            .attr("r", node_radius)
-            .attr("fill", "white")
-            .attr("stroke", "black")
-            .on("mouseover", function() {this.style.fill = "gray";
-            this.parentNode.querySelector("text").style.fill = "white";
-            })
-            .on("mouseout", function(){
-                this.style.fill = "white";
-                this.parentNode.querySelector("text").style.fill = "black";
-            })
-            .on("click", function() {
-                clickNode(node);
-            });
-        group.append("text")
-            .attr("class", "node_text")
-            .attr("x", node.x)
-            .attr("y", node.y)
-            .attr("text-anchor", "middle")
-            .attr("dominant-baseline", "central")
-            // .text(node.id + 1)
-            .text(node_label)
-            .attr("fill", "black")
-            .style("pointer-events", "none");
-        group.select("text")
-            .style("font-size", "30pt");
-
-    })
-    
-    updateLegend(numNodes);
-    const legend = document.getElementById("legend");
-    const legendWidth = legend.offsetWidth;
-    legend.style.right = `${margin - legendWidth}px`;
-
-
+    const node_image_width = 170;
 
     // Generate links (fully connected)
     const links = [];
@@ -112,27 +78,27 @@ function createFullyConnectedGraph() {
         weights.push(w);
     }
 
-    var weight_offset = 0.303;
-    var line_gap_size = 20;
+    var weight_offset = 50;
+    // var line_gap_size = 20;
     links.forEach((link, index) => {
         const dx = link.target.x - link.source.x;
         const dy = link.target.y - link.source.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const unitX = dx / distance;
         const unitY = dy / distance;
-
-        const x1 = link.source.x + unitX * node_radius;
-        const y1 = link.source.y + unitY * node_radius;
-        const x2 = link.target.x - unitX * node_radius;
-        const y2 = link.target.y - unitY * node_radius;
-        const center_weight_x = (x1+x2)/2;
-        const center_weight_y = (y1+y2)/2;
-        const mid_distance = radius * Math.cos(Math.PI / numNodes);
-        const offset_value = mid_distance - Math.sqrt((centerX - center_weight_x)**2 + (centerY - center_weight_y)**2);
-        const weight_x = center_weight_x + unitX * weight_offset * offset_value;
-        // const weight_y = (y1 + y2) / 2 + (index % 2 === 0 ? -10 : 10); // Adjusted y coordinate to be symmetric and non-overlapping
-        const weight_y = center_weight_y + unitY * weight_offset * offset_value;
-        // const next_weight = weights_iter.next().value;
+        const center_weight_x = (link.source.x + link.target.x) / 2;
+        const center_weight_y = (link.source.y + link.target.y) / 2;
+        
+        const distanceFromCenter = Math.sqrt((center_weight_x - centerX) ** 2 + (center_weight_y - centerY) ** 2);
+        const delta_diff = Math.max(weight_offset - distanceFromCenter, 0);
+        
+        const weight_x = center_weight_x + unitX * delta_diff;
+        const weight_y = center_weight_y + unitY * delta_diff;
+        const x1 = link.source.x;
+        const y1 = link.source.y;
+        const x2 = link.target.x;
+        const y2 = link.target.y;
+        
         const linkId = "link" + index;
         const group = container.append("g")
             .attr("id", linkId);
@@ -140,50 +106,136 @@ function createFullyConnectedGraph() {
             .attr("class", "link")
             .attr("x1", x1)
             .attr("y1", y1)
-            .attr("x2", weight_x - line_gap_size * unitX)
-            .attr("y2", weight_y - line_gap_size * unitY)
-            .attr("stroke", "black");
-        group.append("line")
-            .attr("class", "link")
-            .attr("x1", weight_x + line_gap_size * unitX)
-            .attr("y1", weight_y + line_gap_size * unitY)
             .attr("x2", x2)
             .attr("y2", y2)
-            .attr("stroke", "black");
+            .attr("stroke", "black")
+            .attr("stroke-width", 5);
+
+        group.append("circle")
+            .attr("cx", weight_x)
+            .attr("cy", weight_y)
+            .attr("r", 15) // Assuming 30pt text is approximately 15px in radius
+            .attr("stroke", "black")
+            .attr("stroke-width", 2)
+            .attr("fill", "none");
+        group.append("image")
+            .attr("xlink:href", "/static/assets/images/coin.png")
+            .attr("x", weight_x - 15) // Adjusting x and y to center the image within the circle
+            .attr("y", weight_y - 15)
+            .attr("width", 30); // Adjusting width to match the size of 30pt text
+        // group.append("text")
+        //     .attr("class", "edge_weight")
+        //     .attr("x", weight_x)
+        //     .attr("y", weight_y)
+        //     .attr("text-anchor", "middle")
+        //     .attr("dominant-baseline", "central")
+        //     .text("\u{1FA99}")
+        //     .attr("fill", "black")
+        //     .attr("pointer-event", "none")
+        //     .attr("font-size", "30pt"); // Increased font size to make the coin larger
+
         group.append("text")
             .attr("class", "edge_weight")
             .attr("x", weight_x)
-            .attr("y", weight_y)
+            .attr("y", weight_y + 4)
             .attr("text-anchor", "middle")
             .attr("dominant-baseline", "central")
             .text(weights[index])
-            .attr("fill", "black")
+            .attr("pointer-event", "none")
+            .attr("fill", "black") // Changed color to white for better visibility
             .attr("font-size", "20pt");
+            
 
         graph[link.source.id][link.target.id]=linkId;
         graph[link.target.id][link.source.id]=linkId;
         return_graph[link.source.id][link.target.id]=weights[index];
         return_graph[link.target.id][link.source.id]=weights[index];
-        
-
-
     })
+
+    const imageLoadPromises = nodes.map(node => {
+        return new Promise((resolve, reject) => {
+            const group = container.append("g");
+            let node_label = nodeLabels[node.id][0];
+            
+            if (node.id >= imagePaths.length) {
+                throw new Error("Node ID is larger than the length of image paths");
+            }
+            const imagePath = imagePaths[node.id];
+            
+            const tmpImg = new Image();
+            tmpImg.src = imagePath;
+            
+            tmpImg.onload = function() {
+                
+                const naturalWidth = tmpImg.naturalWidth;
+                const naturalHeight = tmpImg.naturalHeight;
+                const scaleFactor = node_image_width / naturalWidth;
+                const scaledWidth = naturalWidth * scaleFactor;
+                const scaledHeight = naturalHeight * scaleFactor;
+                
+                console.log(`Natural Width: ${naturalWidth}, Natural Height: ${naturalHeight}`);
+                console.log(`Scale Factor: ${scaleFactor}, Scaled Width: ${scaledWidth}, Scaled Height: ${scaledHeight}`);
+                
+                // Append the rect with the same scaled dimensions
+                const stroke_width = 2
+                group.append("rect")
+                .attr("class", "node")
+                .attr("id", `rect-${node.id}`)
+                .attr("x", node.x - (scaledWidth + stroke_width) / 2) // Adjust x to account for stroke width
+                .attr("y", node.y - (scaledHeight + stroke_width) / 2) // Adjust y to account for stroke width
+                .attr("width", scaledWidth + stroke_width) // Adjust width to account for stroke width
+                .attr("height", scaledHeight + stroke_width) // Adjust height to account for stroke width
+                .attr("fill", backgroundColor)  // Use the background color
+                .style("z-index", "0")  // Set the z-index to 0 to make the rectangle appear behind the image
+                .attr("stroke", "black")  // Set the border color to black
+                .attr("stroke-width", "2")  // Set the border width to 4px
+                .attr("stroke-dasharray", "7,1");  // Set the dashed border
+                
+                group.append("image")
+                    .attr("class", "node")
+                    .attr("id", `image-${node.id}`)
+                    .attr("x", node.x - scaledWidth / 2)
+                    .attr("y", node.y - scaledHeight / 2)
+                    .attr("width", scaledWidth)
+                    .attr("height", scaledHeight)
+                    .attr("xlink:href", imagePath)  // Use the calculated image path
+                    .style("z-index", "1")  // Set the z-index to 1 to make the image appear above the edges
+                    .on("mouseover", function() {
+                        this.style.opacity = "0.5";
+                        this.parentNode.querySelector("text").style.fill = "black";
+                    })
+                    .on("mouseout", function(){
+                        this.style.opacity = "1";
+                        this.parentNode.querySelector("text").style.fill = "white";
+                    })
+                    .on("click", function() {
+                        clickNode(node);
+                    });
+
+                resolve();
+            };
+            tmpImg.onerror = function() {
+                console.error(`Failed to load image for noe ${node.id}`);
+                resolve();
+            };
+            
+            group.append("text")
+                .attr("class", "node_text")
+                .attr("x", node.x)
+                .attr("y", node.y)
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "central")
+                .text(node_label)
+                .attr("fill", "white")
+                .style("pointer-events", "none")
+                .style("font-size", "40pt");
+        });
+    });
+
     var total_edge_weight = 0;
     for (let w of weights) {
         total_edge_weight += w;
     }
-    // const trackingArea = document.getElementById("tracking-area");
-
-    // Removed for less information on the screen
-
-    // const totalWeightDiv = document.createElement("div");
-    // totalWeightDiv.className = "total-weight";
-    // totalWeightDiv.style.position = "absolute";
-    // totalWeightDiv.style.left = "20px";
-    // totalWeightDiv.style.top = "20px";
-    // totalWeightDiv.textContent = "Total Edge Weight: " + total_edge_weight;
-    // totalWeightDiv.style.fontSize = "20px";
-
 
     const accWeightsDiv = document.createElement("div");
     accWeightsDiv.className = "acc-weight";
@@ -193,32 +245,33 @@ function createFullyConnectedGraph() {
     accWeightsDiv.textContent = "\u{1FA99}: " + acc_weights;
     accWeightsDiv.style.fontSize = "30px";
 
-
-
     // trackingArea.appendChild(totalWeightDiv);
     trackingArea.appendChild(accWeightsDiv);
 
-    socket.emit("message_command",
-        {
-            "command": {
-                "event": "save_graph",
-                "graph": return_graph
-            },
-            "room": self_room,
-            "user_id": self_user
-        }
-    )
-    pushNode(nodes[0]);
-    socket.emit("message_command",
-        {
-            "command": {
-                "event": "update_path",
-                "path": path
-            },
-            "room": self_room,
-            "user_id": self_user
-        }
-    )
+    Promise.all(imageLoadPromises).then(() => {
+        socket.emit("message_command",
+            {
+                "command": {
+                    "event": "save_graph",
+                    "graph": return_graph
+                },
+                "room": self_room,
+                "user_id": self_user
+            }
+        )
+        pushNode(nodes[0]);
+        socket.emit("message_command",
+            {
+                "command": {
+                    "event": "update_path",
+                    "path": path
+                },
+                "room": self_room,
+                "user_id": self_user
+            }
+        )
+
+    })
     return nodes;
 }
 
@@ -292,12 +345,12 @@ function clickNode(clickedNode){
                 return;
             }
             if (i === path.length - 1){
-                resetNodeGray(clickedNode);
+                resetNode(clickedNode);
                 path.pop();
                 last_link_id = path_links.pop();
                 const linkElement = d3.select(`#${last_link_id}`);
                 resetLink(linkElement);
-                makeNodeNewOut(path[path.length - 1]);
+                makeNodeNew(path[path.length - 1]);
             }
             else{
                 while (path_links.length > i){
@@ -308,7 +361,7 @@ function clickNode(clickedNode){
                 // let j = path.length - 1;
                 while (path.length > i + 1){
                     node = path.pop();
-                    resetNodeWhite(node);
+                    resetNode(node);
                 }
                 makeNodeNew(path[i]);
             }
@@ -365,59 +418,26 @@ function pushNode(node){
     makeNodeNew(node);
 }
 function makeNodeNew(node){
-    const nodeElement = document.getElementById(node.id);
-    // nodeElement.setAttribute("fill", "green");
-    nodeElement.style.fill = "lightgreen";
-    nodeElement.onmouseover = function() { this.style.fill = "green"; };
-    nodeElement.onmouseout = function() { this.style.fill = "lightgreen"; };
-}
-function makeNodeNewOut(node){
-    const nodeElement = document.getElementById(node.id);
-    // nodeElement.setAttribute("fill", "green");
-    nodeElement.style.fill = "lightgreen";
-    nodeElement.onmouseover = function() { this.style.fill = "green"; };
-    nodeElement.onmouseout = function() { this.style.fill = "lightgreen"; };
+    const nodeElement = document.getElementById(`rect-${node.id}`);
+    nodeElement.style.stroke = "lightgreen";
 }
 function makeNodeOld(node){
-    const nodeElement = document.getElementById(node.id);
-    nodeElement.style.fill = "orange";
-    nodeElement.onmouseover = function() { 
-        this.style.fill = "#F08C00";
-        nodeElement.parentNode.querySelector("text").style.fill = "white";
-    };
-    
-    nodeElement.onmouseout = function() {
-        this.style.fill = "orange";
-        nodeElement.parentNode.querySelector("text").style.fill = "black";
-    };
+    const nodeElement = document.getElementById(`rect-${node.id}`);
+    nodeElement.style.stroke = "orange";
 }
-function resetNodeWhite(node){
-    const nodeElement = document.getElementById(node.id);
-    // nodeElement.setAttribute("fill", "green");
-    nodeElement.style.fill = "white";
-    nodeElement.onmouseover = function() {
-        this.style.fill = "gray";
-    };
-    nodeElement.onmouseout = function() { this.style.fill = "white"; };
-}
-function resetNodeGray(node){
-    const nodeElement = document.getElementById(node.id);
-    // nodeElement.setAttribute("fill", "green");
-    nodeElement.style.fill = "gray";
-    nodeElement.onmouseover = function() {
-        this.style.fill = "gray";
-    };
-    nodeElement.onmouseout = function() { this.style.fill = "white"; };
+function resetNode(node){
+    const nodeElement = document.getElementById(`rect-${node.id}`);
+    nodeElement.style.stroke = "black";
 }
 
 function colorLinkVisited(link){
-    link.selectAll(".link").style("stroke", "orange").style("stroke-width", "4px");
+    link.selectAll(".link").style("stroke", "orange").style("stroke-width", "8px");
 }
 function colorLinkAccepting(link){
-    link.selectAll(".link").style("stroke", "lightgreen").style("stroke-width", "4px");
+    link.selectAll(".link").style("stroke", "lightgreen").style("stroke-width", "8px");
 }
 function resetLink(link){
-    link.selectAll(".link").style("stroke", "black").style("stroke-width", "1px");
+    link.selectAll(".link").style("stroke", "black").style("stroke-width", "5px");
 }
 
 $(`#submit_button`).click(() => {
