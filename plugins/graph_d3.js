@@ -23,6 +23,12 @@ const nodeLabels = [['L', 'Living Room'], ['K', 'Kitchen'], ['B', 'Bathroom'], [
 // const legend = document.createElement("table");
 // legend.style.position = "absolute";
 
+let animationData = {
+    running: false,
+    source: null,
+    target: null
+};
+let walkingFigureGif;
 
 function createFullyConnectedGraph() {
     const width = 1024;
@@ -101,7 +107,7 @@ function createFullyConnectedGraph() {
         
         const linkId = "link" + index;
         const group = container.append("g")
-            .attr("id", linkId);
+            .attr("id", `${linkId}`);
         group.append("line")
             .attr("class", "link")
             .attr("x1", x1)
@@ -173,8 +179,8 @@ function createFullyConnectedGraph() {
                 const scaledWidth = naturalWidth * scaleFactor;
                 const scaledHeight = naturalHeight * scaleFactor;
                 
-                console.log(`Natural Width: ${naturalWidth}, Natural Height: ${naturalHeight}`);
-                console.log(`Scale Factor: ${scaleFactor}, Scaled Width: ${scaledWidth}, Scaled Height: ${scaledHeight}`);
+                // console.log(`Natural Width: ${naturalWidth}, Natural Height: ${naturalHeight}`);
+                // console.log(`Scale Factor: ${scaleFactor}, Scaled Width: ${scaledWidth}, Scaled Height: ${scaledHeight}`);
                 
                 // Append the rect with the same scaled dimensions
                 const stroke_width = 2
@@ -198,16 +204,10 @@ function createFullyConnectedGraph() {
                     .attr("y", node.y - scaledHeight / 2)
                     .attr("width", scaledWidth)
                     .attr("height", scaledHeight)
-                    .attr("xlink:href", imagePath)  // Use the calculated image path
-                    .style("z-index", "1")  // Set the z-index to 1 to make the image appear above the edges
-                    .on("mouseover", function() {
-                        this.style.opacity = "0.5";
-                        this.parentNode.querySelector("text").style.fill = "black";
-                    })
-                    .on("mouseout", function(){
-                        this.style.opacity = "1";
-                        this.parentNode.querySelector("text").style.fill = "white";
-                    })
+                    .attr("xlink:href", imagePath)
+                    .style("z-index", "1")
+                    .on("mouseover", function() { handleMouseOver.call(this, node); })
+                    .on("mouseout", function() { handleMouseOut.call(this, node); })
                     .on("click", function() {
                         clickNode(node);
                     });
@@ -388,6 +388,12 @@ function clickNode(clickedNode){
         }
         updateWeights();
     }
+    if (animationData.running){
+        if (walkingFigureGif){
+            walkingFigureGif.remove();
+        }
+        animationData.running = false;
+    }
     socket.emit("message_command",
         {
             "command": {
@@ -438,6 +444,110 @@ function colorLinkAccepting(link){
 }
 function resetLink(link){
     link.selectAll(".link").style("stroke", "black").style("stroke-width", "5px");
+}
+
+function handleMouseOver(node) {
+    this.style.opacity = "0.5";
+    this.parentNode.querySelector("text").style.fill = "black";
+    if (path.includes(node)) {
+        return;
+    }
+
+    if (path.length > 0) {
+        const lastNode = path[path.length - 1];
+        const linkId = graph[node.id][lastNode.id];
+        const linkElement = d3.select(`#${linkId}`);
+        linkElement.selectAll(".link").style("stroke", "lightgreen").style("stroke-width", "8px");
+
+        const dx = node.x - lastNode.x;
+        const dy = node.y - lastNode.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const unitX = dx / distance;
+        const unitY = dy / distance;
+        const source = { x: lastNode.x + dx / 2 - unitX * 60, y: lastNode.y + dy / 2 - unitY * 60 };
+        const target = { x: lastNode.x + dx / 2 + unitX * 60, y: lastNode.y + dy / 2 + unitY * 60 };
+
+        walkingFigureGif = d3.select("#graph-container")
+            .append("image")
+            .attr("xlink:href", "/static/assets/images/walk-cycle-alpha-30.gif")
+            .attr("width", 50)
+            .attr("height", 50)
+            .attr("x", - 25) // Offset x by half the width to center horizontally
+            .attr("y", - 50) // Offset y by the height to align bottom with source coordinates
+            // .attr("transform", `
+            //     translate(${source.x}, ${source.y})
+            //     scale(${dx < 0 ? -1 : 1}, 1)
+            //     translate(${dx < 0 ? -50 : 0}, 0)
+            //     rotate(${Math.atan2(dy, dx) * 180 / Math.PI}, 0, 0)
+            // `)
+            ;
+            
+            
+        animationData.running = true;
+        animationData.source = source;
+        animationData.target = target;
+        animateGif(source, target);
+    }
+}
+
+function animateGif(source, target) {
+    if (!animationData.running) return;
+    const current_source = animationData.source;
+    const current_target = animationData.target;
+    if (
+        Math.abs(current_source.x - source.x) > 1e-6 || 
+        Math.abs(current_source.y - source.y) > 1e-6 || 
+        Math.abs(current_target.x - target.x) > 1e-6 || 
+        Math.abs(current_target.y - target.y) > 1e-6
+    ) {
+        return;
+    }
+
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    const angleTransform = dx < 0 ? 180 - angle : angle;
+    const flip = dx < 0 ? -1 : 1;
+
+    walkingFigureGif.transition()
+        .duration(700)
+        .attrTween("transform", function() {
+            return function(t) {
+                const x = source.x + (target.x - source.x) * t;
+                const y = source.y + (target.y - source.y) * t;
+                
+                return `
+                    translate(${x}, ${y})
+                    scale(${flip}, 1)
+                    rotate(${angleTransform}, 0, 0)
+                `;
+            };
+        })
+        .on("end", function() {
+            // Restart the animation
+            animateGif(current_source, current_target);
+        });
+}
+
+function handleMouseOut(node) {
+    this.style.opacity = "1";
+    this.parentNode.querySelector("text").style.fill = "white";
+
+    if (path.includes(node)){
+        return;
+    }
+    if (path.length > 0) {
+        const lastNode = path[path.length - 1];
+        const linkId = graph[node.id][lastNode.id];
+        const linkElement = d3.select(`#${linkId}`);
+        linkElement.selectAll(".link").style("stroke", "black").style("stroke-width", "5px");
+    }
+
+    // Stop the animation
+    animationData.running = false;
+    if (walkingFigureGif) {
+        walkingFigureGif.remove();
+    }
 }
 
 $(`#submit_button`).click(() => {
