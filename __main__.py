@@ -2,7 +2,10 @@ from itertools import permutations
 from bisect import bisect_left
 from collections import defaultdict
 import logging
+import json
 # import random
+import math
+import random
 from threading import Timer
 # import string
 import requests
@@ -10,6 +13,7 @@ import requests
 from templates import TaskBot
 from time import sleep
 # from random import randrange, choice
+import threading
 
 
 from .config import *
@@ -47,6 +51,7 @@ class Session:
         self.one_minute_timer: RoomTimer = None
         self.graph = {}
         self.path = {}
+        self.graph_created = defaultdict(lambda: False)
 
         # Change these numbers to adjust the episodes to play. Make sure that len(self.graph_sizes) >= self.number_of_episodes and len(self.max_weights) >= self.number_of_episodes, at best they are equal.
         self.episode_counter = 2  # number of rounds to play
@@ -73,7 +78,7 @@ class Session:
     def next_episode(self):
         self.episode_counter -= 1
         self.cancel_timers()
-
+        self.graph_created = defaultdict(lambda: False)
     @property
     def graph_size(self):
         return self.graph_sizes[self.episode_counter]
@@ -113,8 +118,14 @@ class SessionManager:
 
 class Sailsman(TaskBot):
 
-    session_manager = SessionManager(Session)
-    data_collection = "AMT"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.episode_started_event = threading.Event()  # Create an event to signal episode start
+        self.session_manager = SessionManager(Session)
+        self.data_collection = "AMT"
+        self.started = False
+        # self.graph = []
 
     def on_task_room_creation(self, data): # function doesn't get called in --dev mode
         room_id = data["room"]
@@ -191,6 +202,59 @@ class Sailsman(TaskBot):
             },
         )
     
+    def create_graph_data(self, room_id, user_id):
+        this_session = self.session_manager[room_id]
+        if this_session.graph_created[user_id]:
+            return
+        num_nodes = this_session.graph_size
+        max_weight = this_session.max_weight
+        min_weight = 1
+
+
+        # Calculate the total weight that should be distributed across the graph edges.
+        # This is based on the average of max and min weights and the number of edges in a complete graph.
+        total_weight = (max_weight + min_weight) * (num_nodes * (num_nodes - 1) // 2) // 2
+        
+        # Initialize the sum of weights that have been assigned so far.
+
+        # for user_id in this_session.graph.keys():
+            # Initialize the graph with zero weights
+        graph = [[0 for _ in range(num_nodes)] for _ in range(num_nodes)]
+        remaining_edges = num_nodes * (num_nodes - 1) // 2
+        current_weight_sum = 0
+
+        for i in range(num_nodes):
+            for j in range(i + 1, num_nodes):
+                # Calculate the target mean weight for the remaining edges.
+                target_mean = min(max_weight, max(min_weight, (total_weight - current_weight_sum) // remaining_edges))
+                
+                # Deviation from the target mean can be at most the smaller difference from the mean to min or max weight.
+                std = min(max_weight - target_mean, target_mean - min_weight)
+                
+                # Calculate the minimum possible weight for the current edge.
+                # Ensure that the remaining weight can add up to total_weight.
+                current_min_weight = target_mean - math.ceil(std * ((remaining_edges - 1) / (num_nodes * (num_nodes - 1) // 2)))
+                
+                # Calculate the maximum possible weight for the current edge.
+                # It adjusts the target mean by a factor based on the remaining edges.
+                current_max_weight = target_mean + math.ceil(std * ((remaining_edges - 1) / (num_nodes * (num_nodes - 1) // 2)))
+                
+                # Randomly select a weight for the current edge within the calculated min and max range.
+                w = random.randint(current_min_weight, current_max_weight)
+                
+                # Update the current weight sum with the selected weight.
+                current_weight_sum += w
+                
+                # Decrement the remaining edges count.
+                remaining_edges -= 1
+                
+                # Assign the selected weight to the graph edges (both directions).
+                graph[i][j] = w
+                graph[j][i] = w
+        this_session.graph[user_id] = graph
+        this_session.graph_created[user_id] = True
+        
+
 
     def calculate_score(self, room_id):
 
@@ -258,7 +322,8 @@ class Sailsman(TaskBot):
         return percentile_score, gold_path, gold_cost, path_cost
 
     def _start_new_episode(self, room_id):
-        sleep(1)
+        # sleep(1)
+        print("Starting new episode")
         current_session = self.session_manager[room_id]
         current_session.next_episode()
         if current_session.episode_counter >= 0:
@@ -284,24 +349,48 @@ class Sailsman(TaskBot):
                     },
                 )
             
+            # return
+            # self.create_graph_data(room_id)
+
+            # for user_id in current_session.graph.keys():
+            #     logging.debug(f"User ID: {user_id}")
+            #     logging.debug(f"User ID type: {type(user_id)}")
+
+            #     self.sio.emit(
+            #         "message_command",
+            #         {
+            #         "command": {
+            #             "event": "draw_graph",
+            #             "graph": current_session.graph[user_id],
+            #             "size": current_session.graph_size,
+            #             "max_weight": current_session.max_weight,
+            #             "min_weight": 1
+            #         },
+            #         "room": room_id,
+            #         "user_id": user_id
+            #     }
+            # )
             self.sio.emit(
                 "message_command",
                 {
-                "command": {
-                    "event": "new_episode",
-                    "size": current_session.graph_size,
-                    "max_weight": current_session.max_weight,
-                    "min_weight": 1
-                },
-                "room": room_id
+                    "command": {"event": "new_episode"},
+                    "room": room_id,
                 }
             )
-                        
         else:
             self.send_prolific_code(room_id)
 
             self.close_room(room_id)
+        logging.debug(f"user variable: {self.user}")
+        self.started = True
+        self.episode_started_event.set()  # Signal that the episode has started
+
+    def _start_game(self, room_id):
+        """Start the game for the given room. Only used in --dev mode."""
+        if self.started:
+            return
         
+        self._start_new_episode(room_id)
 
     def confirmation_code(self, room_id, bonus, receiver_id=None): #When should this be used?
         """ Generate token that will be sent to each player. """
@@ -431,15 +520,38 @@ class Sailsman(TaskBot):
                     this_session.graph[user_id] = data["command"]["graph"]
                     logging.debug(f"received graph: {this_session.graph[user_id]}")
                     self.log_event("save_graph", {"graph": this_session.graph[user_id], "user_id": user_id}, room_id)
-                    # board = data["command"]["board"]
-                    # update latest board for this user
-                    # this_session.latest_board[user_id] = board
-                    # logging.debug(this_session.latest_board)
+
                 if data["command"]["event"] == "update_path":
                     path = [node["id"] for node in data["command"]["path"]]
                     this_session.path[user_id] = path
                     logging.debug(f"current path of user {user_id} is {this_session.path[user_id]}")
                     self.log_event("update_path", {"path": this_session.path[user_id], "user_id": user_id}, room_id)
+                
+                if data["command"]["event"] == "document_ready":
+                    # log current self.user
+                    if not self.started:
+                        # wait until episode has started
+                        self.episode_started_event.wait()
+                    
+                    self.create_graph_data(room_id, user_id)
+                    logging.debug(f"Sending draw graph to user {user_id}")
+                    logging.debug(f"Current self.user: {self.user}")
+                    self.sio.emit(
+                        "message_command",
+                        {
+                            "command": {
+                                "event": "draw_graph",
+                                "graph": this_session.graph[user_id],
+                                "size": this_session.graph_size,
+                                "max_weight": this_session.max_weight,
+                                "min_weight": 1,
+                                "user_id": user_id
+                            },
+                            "room": room_id,
+                        }
+                    )
+                if data["command"]["event"] == "start_game":
+                    self._start_game(room_id)
 
 
             else:
@@ -576,6 +688,9 @@ class Sailsman(TaskBot):
                     )
                     response.raise_for_status()
                 logging.debug("Removing user from task room was successful.")
+
+    def reset_event(self):
+        self.episode_started_event.clear()  # Reset the event if needed for the next episode
 
 if __name__ == "__main__":
     # set up loggingging configuration
