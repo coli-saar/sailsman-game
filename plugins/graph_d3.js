@@ -32,45 +32,6 @@ let animationData = {
 };
 let walkingFigureGif;
 
-// function createGraphData(graph) {
-//     const width = 1024;
-//     const height = 768;
-//     const centerX = width / 2;
-//     const centerY = height / 2;
-//     const margin = 70;
-//     const radius = width < height ? width / 2 - margin : height / 2 - margin;
-
-//     // Generate nodes with random positions
-//     const nodes = d3.range(numNodes).map((d, i) => ({
-//         id: i,
-//         x: centerX + radius * Math.cos(2 * Math.PI * i / numNodes),
-//         y: centerY + radius * Math.sin(2 * Math.PI * i / numNodes)
-//     }));
-
-//     // Generate links (fully connected)
-//     const links = [];
-//     for (let i = 0; i < nodes.length; i++) {
-//         for (let j = i + 1; j < nodes.length; j++) {
-//             links.push({ source: nodes[i], target: nodes[j] });
-//         }
-//     }
-
-//     // Calculate weights
-//     var total_weight = Math.ceil((max_weight + min_weight) * links.length / 2);
-//     var weights = [];
-//     var current_weight_sum = 0;
-//     for (let i = 0; i < links.length; i++) {
-//         var target_mean = Math.min(max_weight, Math.max(min_weight, Math.floor((total_weight - current_weight_sum) / (links.length - i))));
-//         var std = Math.min(max_weight - target_mean, target_mean - min_weight);
-//         var current_min_weight = target_mean - Math.ceil(std * ((links.length - i - 1) / links.length));
-//         var current_max_weight = target_mean + Math.ceil(std * ((links.length - i - 1) / links.length));
-//         var w = Math.floor(Math.random() * (current_max_weight - current_min_weight + 1)) + current_min_weight;
-//         current_weight_sum += w;
-//         weights.push(w);
-//     }
-
-//     return { nodes, links, weights };
-// }
 
 function drawGraph(graph) {
     const width = 1024;
@@ -106,8 +67,6 @@ function drawGraph(graph) {
         .attr("height", 768);
 
     const container = svg.append("g").attr("id", "graph-container");
-    // console.table(`Graph: ${graph}`);
-    // console.log(`graph values: ${graph[0][1]}`);
 
     var weight_offset = 50;
     // Draw links
@@ -225,17 +184,6 @@ function drawGraph(graph) {
                 console.error(`Failed to load image for node ${node.id}`);
                 resolve();
             };
-
-            // group.append("text")
-            //     .attr("class", "node_text")
-            //     .attr("x", node.x)
-            //     .attr("y", node.y)
-            //     .attr("text-anchor", "middle")
-            //     .attr("dominant-baseline", "central")
-            //     .text(nodeLabels[node.id][0])
-            //     .attr("fill", "white")
-            //     .style("pointer-events", "none")
-            //     .style("font-size", "40pt");
         });
     });
 
@@ -253,11 +201,6 @@ function drawGraph(graph) {
     });
 }
 function drawCollectedCoins(){
-    // Deprecated
-    // var total_edge_weight = 0;
-    // for (let w of weights) {
-    //     total_edge_weight += w;
-    // }
 
     const accWeightsDiv = document.createElement("div");
     accWeightsDiv.className = "acc-weight";
@@ -267,64 +210,10 @@ function drawCollectedCoins(){
     accWeightsDiv.textContent = "\u{1FA99}: " + acc_weights;
     accWeightsDiv.style.fontSize = "30px";
 
-    // trackingArea.appendChild(totalWeightDiv);
     trackingArea.appendChild(accWeightsDiv);
 }
-// Call the function to create and draw the graph
-// createFullyConnectedGraph = () => {
-//     drawGraph();
-// };
-
-// function updateLegend(numRows) {
-//     // Get or create the table element
-//     let table = document.getElementById("legend");
-//     if (!table) {
-//         table = document.createElement("table");
-//         table.id = "legend";
-//         table.style.position = "absolute";
-//         table.style.top = "50px";
-//         // table.style.right = "-50px";
-//         trackingArea.appendChild(table);
-//     }
-    
-//     // Clear existing table content
-//     table.innerHTML = "";
-
-
-//     // Create table body and populate with node labels
-//     let tbody = document.createElement("tbody");
-    
-//     nodeLabels.slice(0, numRows).forEach(([label, name]) => {
-//         let row = document.createElement("tr");
-        
-//         let td1 = document.createElement("td");
-//         td1.style.textAlign = "left";
-//         td1.style.fontSize = "30px";
-//         td1.style.fontWeight = "bold";
-//         td1.style.padding = "5px 20px"
-//         td1.textContent = label;
-//         let td2 = document.createElement("td");
-//         td2.style.textAlign = "left";
-//         td2.style.fontSize = "30px";
-//         td2.style.padding = "10px 20px"
-//         td2.textContent = name;
-        
-//         row.appendChild(td1);
-//         row.appendChild(td2);
-//         tbody.appendChild(row);
-//     });
-
-//     table.appendChild(tbody);
-// }
-
 
 function clickNode(clickedNode){
-    // console.log("clicke node: " + clickedNode.id);
-    // if (path.length < 1){
-    //     pushNode(clickedNode);
-    // }
-    // else{
-    // Check whether clicked node is in the path already
     var updated_path = false;
     for (let i=0; i<path.length; i++){
         const n = path[i];
@@ -356,7 +245,6 @@ function clickNode(clickedNode){
             updateWeights();
             updated_path = true;
         }
-        // }
     }
     if (updated_path == false){
         const last_node = path[path.length - 1];
@@ -432,7 +320,6 @@ function resetLink(link){
 
 function handleMouseOver(node) {
     this.style.opacity = "0.5";
-    // this.parentNode.querySelector("text").style.fill = "black";
     if (path.includes(node)) {
         return;
     }
@@ -509,7 +396,6 @@ function animateGif(source, target) {
 
 function handleMouseOut(node) {
     this.style.opacity = "1";
-    // this.parentNode.querySelector("text").style.fill = "white";
 
     if (path.includes(node)){
         return;
@@ -540,7 +426,7 @@ $(`#submit_button`).click(() => {
 })
 
 
-// only for --dev
+// !!only for --dev!!
 socket.emit("message_command", {
     "command": {
         "event": "start_game",

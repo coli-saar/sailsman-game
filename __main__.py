@@ -2,22 +2,19 @@ from itertools import permutations
 from bisect import bisect_left
 from collections import defaultdict
 import logging
-import json
-# import random
+
 import math
 import random
 from threading import Timer
-# import string
+
 import requests
-# from time import sleep
+
 from templates import TaskBot
 from time import sleep
-# from random import randrange, choice
 import threading
 
 
 from .config import *
-# from .msgfunctions import *
 
 class RoomTimer:
     def __init__(self, function, room_id, TIMER):
@@ -46,7 +43,6 @@ class Session:
     def __init__(self):
         self.players = []
         self.episode_timer = None
-        # self.timer: RoomTimer = None
         self.halfway_timer: RoomTimer = None
         self.one_minute_timer: RoomTimer = None
         self.graph = {}
@@ -125,13 +121,11 @@ class Sailsman(TaskBot):
         self.session_manager = SessionManager(Session)
         self.data_collection = "AMT"
         self.started = False
-        # self.graph = []
 
     def on_task_room_creation(self, data): # function doesn't get called in --dev mode
         room_id = data["room"]
         logging.debug(f"Room {room_id} was created")
 
-        # sleep(10)
         self._start_new_episode(room_id)
         self.move_divider(room_id, chat_area=25, task_area=75) # resize chat area
 
@@ -215,10 +209,6 @@ class Sailsman(TaskBot):
         # This is based on the average of max and min weights and the number of edges in a complete graph.
         total_weight = (max_weight + min_weight) * (num_nodes * (num_nodes - 1) // 2) // 2
         
-        # Initialize the sum of weights that have been assigned so far.
-
-        # for user_id in this_session.graph.keys():
-            # Initialize the graph with zero weights
         graph = [[0 for _ in range(num_nodes)] for _ in range(num_nodes)]
         remaining_edges = num_nodes * (num_nodes - 1) // 2
         current_weight_sum = 0
@@ -239,16 +229,12 @@ class Sailsman(TaskBot):
                 # It adjusts the target mean by a factor based on the remaining edges.
                 current_max_weight = target_mean + math.ceil(std * ((remaining_edges - 1) / (num_nodes * (num_nodes - 1) // 2)))
                 
-                # Randomly select a weight for the current edge within the calculated min and max range.
                 w = random.randint(current_min_weight, current_max_weight)
                 
-                # Update the current weight sum with the selected weight.
                 current_weight_sum += w
                 
-                # Decrement the remaining edges count.
                 remaining_edges -= 1
                 
-                # Assign the selected weight to the graph edges (both directions).
                 graph[i][j] = w
                 graph[j][i] = w
         this_session.graph[user_id] = graph
@@ -322,7 +308,6 @@ class Sailsman(TaskBot):
         return percentile_score, gold_path, gold_cost, path_cost
 
     def _start_new_episode(self, room_id):
-        # sleep(1)
         print("Starting new episode")
         current_session = self.session_manager[room_id]
         current_session.next_episode()
@@ -349,27 +334,6 @@ class Sailsman(TaskBot):
                     },
                 )
             
-            # return
-            # self.create_graph_data(room_id)
-
-            # for user_id in current_session.graph.keys():
-            #     logging.debug(f"User ID: {user_id}")
-            #     logging.debug(f"User ID type: {type(user_id)}")
-
-            #     self.sio.emit(
-            #         "message_command",
-            #         {
-            #         "command": {
-            #             "event": "draw_graph",
-            #             "graph": current_session.graph[user_id],
-            #             "size": current_session.graph_size,
-            #             "max_weight": current_session.max_weight,
-            #             "min_weight": 1
-            #         },
-            #         "room": room_id,
-            #         "user_id": user_id
-            #     }
-            # )
             self.sio.emit(
                 "message_command",
                 {
@@ -469,7 +433,6 @@ class Sailsman(TaskBot):
                 "**Task:** *Travel through the rooms in the same order* as your partner, and visit each room *only **once***, while getting *as many total coins as possible*. Use the chat to agree on a path. Please only communicate in English.",
                 "**Score:** Your reward will be an *even split of all the coins you and your partner have collected together* on the path you chose, so try to get as many as possible.",
                 "**Mechanics:** To select a path, **click** on the room you wish to visit. To go back, click on the room you visited previously. You may revise your path during the round, but your final path must be **identical**. To end the round, either you or your partner should click the blue **SUBMIT** button.",
-                "⚠️ **IMPORTANT** ⚠️: DO NOT refresh your browser. Only identical paths can be submitted. You start in the *living room* (L).",
                 "Wait for the first episode to start."]
 
             for line in lines:
@@ -504,7 +467,10 @@ class Sailsman(TaskBot):
             room_id = data["room"]
             user_id = data["user"]["id"]
 
-            # do not process commands from itself
+            # Deprecated: do not process commands from itself 
+            # THIS NEVER HAPPENS!
+            # Between two human players, self.user is always identical, with a value lower than both user_ids.
+            # Always use the user_id to manage commands
             if user_id == self.user:
                 return
 
@@ -513,9 +479,7 @@ class Sailsman(TaskBot):
             )
 
             this_session = self.session_manager[room_id]
-            # if (data["command"] isinstance dict):
             if isinstance(data["command"], dict):
-                # if the command is a dict (currently: only board_logging)
                 if data["command"]["event"] == "save_graph":
                     this_session.graph[user_id] = data["command"]["graph"]
                     logging.debug(f"received graph: {this_session.graph[user_id]}")
@@ -528,7 +492,6 @@ class Sailsman(TaskBot):
                     self.log_event("update_path", {"path": this_session.path[user_id], "user_id": user_id}, room_id)
                 
                 if data["command"]["event"] == "document_ready":
-                    # log current self.user
                     if not self.started:
                         # wait until episode has started
                         self.episode_started_event.wait()
