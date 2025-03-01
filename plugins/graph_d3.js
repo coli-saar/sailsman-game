@@ -21,7 +21,7 @@ let linkWeights = Array.from({ length: numNodes * (numNodes - 1) / 2 }, () => 0)
 
 
 const trackingArea = document.getElementById("tracking-area");
-const nodeLabels = [['L', 'Living Room'], ['K', 'Kitchen'], ['B', 'Bathroom'], ['F', 'Front Porch'], ['A', 'Attic'], ['O', 'Office']];
+// const nodeLabels = [['L', 'Living Room'], ['K', 'Kitchen'], ['B', 'Bathroom'], ['F', 'Front Porch'], ['A', 'Attic'], ['O', 'Office']];
 
 let graphDrawn = false;
 
@@ -222,10 +222,10 @@ function clickNode(clickedNode){
                 return;
             }
             if (i === path.length - 1){
-                resetNode(clickedNode);
                 path.pop();
                 last_link_id = pathLinks.pop();
                 const linkElement = d3.select(`#${last_link_id}`);
+                resetNode(clickedNode);
                 resetLink(linkElement);
                 makeNodeNew(path[path.length - 1]);
             }
@@ -296,30 +296,55 @@ function pushNode(node){
     makeNodeNew(node);
 }
 function makeNodeNew(node){
-    const nodeElement = document.getElementById(`rect-${node.id}`);
-    nodeElement.style.stroke = "lightgreen";
+    makeNodeGreen(node);
+    // TODO: Add Figure to node
 }
 function makeNodeOld(node){
+    return;
+    // TODO: Remove Figure from node
+}
+function makeNodeOrange(node){
     const nodeElement = document.getElementById(`rect-${node.id}`);
     nodeElement.style.stroke = "orange";
 }
+function makeNodeGreen(node){
+    const nodeElement = document.getElementById(`rect-${node.id}`);
+    nodeElement.style.stroke = "lightgreen";
+}
+function colorNodeHovering(node){
+    const nodeElement = document.getElementById(`rect-${node.id}`);
+    nodeElement.style.strokeWidth = "4";
+    makeNodeOrange(node);
+}
+function colorNodeMouseOut(node){
+    const nodeElement = document.getElementById(`rect-${node.id}`);
+    nodeElement.style.strokeWidth = "2";
+    resetNode(node);
+}
 function resetNode(node){
     const nodeElement = document.getElementById(`rect-${node.id}`);
-    nodeElement.style.stroke = "black";
+    if (!path.includes(node)){
+        nodeElement.style.stroke = "black";
+    }else{
+        makeNodeGreen(node);
+    }
+}
+function colorLinkVisited(link){
+    link.selectAll(".link").style("stroke", "lightgreen").style("stroke-width", "8px");
+    link.selectAll(".circle").style("stroke", "lightgreen");
 }
 
-function colorLinkVisited(link){
-    link.selectAll(".link").style("stroke", "orange").style("stroke-width", "8px");
-}
-function colorLinkAccepting(link){
-    link.selectAll(".link").style("stroke", "lightgreen").style("stroke-width", "8px");
-}
 function resetLink(link){
     link.selectAll(".link").style("stroke", "black").style("stroke-width", "5px");
+    link.selectAll(".circle").style("stroke", "black");
 }
-
+function colorLinkHovering(link){
+    link.selectAll(".link").style("stroke", "orange").style("stroke-width", "8px");
+    link.selectAll(".circle").style("stroke", "orange");
+}
 function handleMouseOver(node) {
     this.style.opacity = "0.5";
+    colorNodeHovering(node);
     if (path.includes(node)) {
         return;
     }
@@ -328,7 +353,7 @@ function handleMouseOver(node) {
         const lastNode = path[path.length - 1];
         const linkId = linkIds[node.id][lastNode.id];
         const linkElement = d3.select(`#${linkId}`);
-        linkElement.selectAll(".link").style("stroke", "lightgreen").style("stroke-width", "8px");
+        colorLinkHovering(linkElement);
 
         const dx = node.x - lastNode.x;
         const dy = node.y - lastNode.y;
@@ -396,6 +421,7 @@ function animateGif(source, target) {
 
 function handleMouseOut(node) {
     this.style.opacity = "1";
+    colorNodeMouseOut(node);
 
     if (path.includes(node)){
         return;
@@ -404,7 +430,7 @@ function handleMouseOut(node) {
         const lastNode = path[path.length - 1];
         const linkId = linkIds[node.id][lastNode.id];
         const linkElement = d3.select(`#${linkId}`);
-        linkElement.selectAll(".link").style("stroke", "black").style("stroke-width", "5px");
+        resetLink(linkElement);
     }
 
     // Stop the animation
