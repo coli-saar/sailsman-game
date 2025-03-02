@@ -552,7 +552,7 @@ class Sailsman(TaskBot):
                         return
                     
                     # Check that the paths visit every node once.
-                    if len(paths[0]) != len(list(this_session.graph.values())[0]):
+                    if len(paths[0]) != this_session.graph_size + 1:
                         self.sio.emit(
                             "text",
                             {
