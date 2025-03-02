@@ -313,7 +313,51 @@ function pushNode(node){
 }
 function makeNodeNew(node){
     makeNodeGreen(node);
-    // TODO: Add Figure to node
+    // const stickFigureId = `stick-figure-${node.id}`;
+    let stickFigure = d3.select(`#stick-figure`);
+    const nodeImage = d3.select(`#image-${node.id}`);
+    const nodeImageWidth = nodeImage.attr("width");
+    const nodeImageHeight = nodeImage.attr("height");
+    const svgCenterX = d3.select("#graph-container").node().getBoundingClientRect().width / 2;
+    const tmpImg = new Image();
+    tmpImg.src = "/static/assets/images/standing-stick.png";
+    tmpImg.onload = function() {
+        const originalStickFigureWidth = tmpImg.naturalWidth;
+        const originalStickFigureHeight = tmpImg.naturalHeight;
+        const scaleFactor = nodeImageHeight / originalStickFigureHeight;
+        const scaledStickFigureWidth = originalStickFigureWidth * scaleFactor;
+        const scaledStickFigureHeight = originalStickFigureHeight * scaleFactor;
+
+        // Add figure to svg if it doesn't exist
+        if (stickFigure.empty()) {
+            const svgContainer = d3.select("#graph-container");
+            stickFigure = svgContainer.append("image")
+                .attr("id", "stick-figure")
+                .attr("href", "/static/assets/images/standing-stick.png")
+                .attr("height", scaledStickFigureHeight)
+                .attr("width", scaledStickFigureWidth)
+                // .attr("y", node.y - nodeImageHeight / 2);
+
+            // if (node.x < svgCenterX) {
+            //     stickFigureElement.attr("x", node.x - nodeImageWidth / 2 - scaledStickFigureWidth)
+            //         .attr("transform", `scaleX(-1)`);
+            // } else {
+            //     stickFigureElement.attr("x", node.x + nodeImageWidth / 2);
+            // }
+        }
+        stickFigure.attr("y", node.y - nodeImageHeight / 2);
+        if (node.x < svgCenterX) {
+                stickFigure.attr("x", 0)
+                .attr("transform", `scale(-1, 1) translate(${- (node.x - nodeImageWidth / 2)}, 0)`)
+            } else {
+                stickFigure.attr("x", node.x + nodeImageWidth / 2)
+                .attr("transform", `scale(1, 1)`);
+        }
+    };
+    tmpImg.onerror = function() {
+        console.error("Failed to load stick figure image");
+    };
+            
 }
 function makeNodeOld(node){
     return;
