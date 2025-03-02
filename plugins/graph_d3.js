@@ -230,56 +230,47 @@ function updateWeights(){
     weightText.textContent = ": " + acc_weights;
 }
 function clickNode(clickedNode){
-    var updated_path = false;
-    for (let i=0; i<path.length; i++){
-        const n = path[i];
-        if (n === clickedNode){
-            if (path.length === 1){
-                return;
-            }
-            if (i === path.length - 1){
-                path.pop();
-                last_link_id = pathLinks.pop();
-                const linkElement = d3.select(`#${last_link_id}`);
-                resetNode(clickedNode);
-                resetLink(linkElement);
-                makeNodeNew(path[path.length - 1]);
-            }
-            else{
-                while (pathLinks.length > i){
-                    last_link_id = pathLinks.pop();
-                    const linkElement = d3.select(`#${last_link_id}`);
-                    resetLink(linkElement);
-                }
-                // let j = path.length - 1;
-                while (path.length > i + 1){
-                    node = path.pop();
-                    resetNode(node);
-                }
-                makeNodeNew(path[i]);
-            }
-            updateWeights();
-            updated_path = true;
-        }
-    }
-    if (updated_path == false){
+    const clickedNodeIndex = path.indexOf(clickedNode);
+    if (clickedNodeIndex === -1){ // clicked node is not in path
         const last_node = path[path.length - 1];
         const linkId = linkIds[clickedNode.id][last_node.id];
-        const linkElement = d3.select(`#${linkId}`);
 
         pathLinks.push(linkId)
-        makeNodeOld(last_node);
         pushNode(clickedNode);
-        colorLinkVisited(linkElement);
 
         if (path.length === numNodes){
             const linkId = linkIds[clickedNode.id][path[0].id];
-            const linkElement = d3.select(`#${linkId}`);
-            colorLinkVisited(linkElement);
             pathLinks.push(linkId);
+            pushNode(path[0]);
         }
-        updateWeights();
+    }else{
+        if (path.length === 1){
+            return;
+        }
+        else if (clickedNodeIndex === 0 && path.length === numNodes){
+            path.push(clickedNode);
+        }
+        else if (clickedNodeIndex === path.length - 1){
+            path.pop();
+        }
+        else{
+            while (path.length > clickedNodeIndex + 1){
+                path.pop();
+            }
+            pathLinks = [];
+            path.forEach((node, index) => {
+                if (index < path.length - 1) {
+                    const nextNode = path[index + 1];
+                    const linkId = linkIds[node.id][nextNode.id];
+                    pathLinks.push(linkId);
+                }
+            });
+        }
     }
+
+    updateGraphColoring();
+    updateWeights();
+
     if (animationData.running){
         if (walkingFigureGif){
             walkingFigureGif.remove();
@@ -296,20 +287,35 @@ function clickNode(clickedNode){
             "user_id": self_user
         }
     )
-
 }
-// function updateWeights(){
-//     acc_weights = 0;
-//     for (const linkId of pathLinks){
-//         acc_weights += linkWeights[linkId];
-//     }
-//     const accWeigthDiv = document.querySelector(".acc-weight");
-//     accWeigthDiv.textContent = "\u{1FA99}: " + acc_weights;
-// }
 
 function pushNode(node){
     path.push(node);
     makeNodeNew(node);
+}
+function updateGraphColoring(){
+    for (const linkId of linkIds.flat()) {
+        if (linkId == 0){
+            continue;
+        }
+        const linkElement = d3.select(`#${linkId}`);
+        resetLink(linkElement);
+    }
+    for (let i = 0; i < numNodes; i++) {
+        const node = { id: i }; // dummy node
+        resetNode(node);
+    }
+    path.forEach((node, index) => {
+        if (index < path.length - 1) {
+            const nextNode = path[index + 1];
+            const linkId = linkIds[node.id][nextNode.id];
+            // console.log(`link from path: ${linkId}`);
+            const linkElement = d3.select(`#${linkId}`);
+            colorLinkVisited(linkElement);
+        }
+        makeNodeGreen(node);
+    });
+    makeNodeNew(path[path.length - 1]);
 }
 function makeNodeNew(node){
     makeNodeGreen(node);
@@ -336,14 +342,6 @@ function makeNodeNew(node){
                 .attr("href", "/static/assets/images/standing-stick.png")
                 .attr("height", scaledStickFigureHeight)
                 .attr("width", scaledStickFigureWidth)
-                // .attr("y", node.y - nodeImageHeight / 2);
-
-            // if (node.x < svgCenterX) {
-            //     stickFigureElement.attr("x", node.x - nodeImageWidth / 2 - scaledStickFigureWidth)
-            //         .attr("transform", `scaleX(-1)`);
-            // } else {
-            //     stickFigureElement.attr("x", node.x + nodeImageWidth / 2);
-            // }
         }
         stickFigure.attr("y", node.y - nodeImageHeight / 2);
         if (node.x < svgCenterX) {
@@ -513,16 +511,19 @@ $(`#submit_button`).click(() => {
 
 $(`#reset-graph-button`).click(() => {
     let updated_path = path.length > 1;
-    for (pathLink of pathLinks){
-        const linkElement = d3.select(`#${pathLink}`);
-        resetLink(linkElement);
-    }
+    path = [path[0]];
     pathLinks = [];
-    while (path.length > 1){
-        node = path.pop();
-        resetNode(node);
-    }
-    makeNodeNew(path[0]);
+    // for (const linkId of linkIds.flat()) {
+    //     const linkElement = d3.select(`#${linkId}`);
+    //     resetLink(linkElement);
+    // }
+    // pathLinks = [];
+    // while (path.length > 1){
+    //     node = path.pop();
+    //     resetNode(node);
+    // }
+    // makeNodeNew(path[0]);
+    updateGraphColoring();
     updateWeights();
     if (updated_path){
         socket.emit("message_command", {
