@@ -20,7 +20,7 @@ let linkIds = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
 let linkWeights = Array.from({ length: numNodes * (numNodes - 1) / 2 }, () => 0);
 
 
-const trackingArea = document.getElementById("tracking-area");
+const graphArea = document.getElementById("graph-area");
 // const nodeLabels = [['L', 'Living Room'], ['K', 'Kitchen'], ['B', 'Bathroom'], ['F', 'Front Porch'], ['A', 'Attic'], ['O', 'Office']];
 
 let graphDrawn = false;
@@ -55,17 +55,13 @@ function drawGraph(graph) {
             links.push({ source: nodes[i], target: nodes[j] });
         }
     }
-    // const { nodes, links, weights } = createGraphData();
-
-    const svg = d3.select("#tracking-area")
+    const svg = d3.select("#graph-area")
         .select("svg")
         .empty()
-        ? d3.select("#tracking-area").append("svg")
-        : d3.select("#tracking-area svg");
-
+        ? d3.select("#graph-area").append("svg")
+        : d3.select("#graph-area svg");
     svg.attr("width", 1024)
         .attr("height", 768);
-
     const container = svg.append("g").attr("id", "graph-container");
 
     var weight_offset = 50;
@@ -187,7 +183,7 @@ function drawGraph(graph) {
         });
     });
 
-    drawCollectedCoins();
+    initWeightDiv();
     Promise.all(imageLoadPromises).then(() => {
         pushNode(nodes[0]);
         socket.emit("message_command", {
@@ -200,19 +196,39 @@ function drawGraph(graph) {
         });
     });
 }
-function drawCollectedCoins(){
-
+function initWeightDiv(){
     const accWeightsDiv = document.createElement("div");
     accWeightsDiv.className = "acc-weight";
     accWeightsDiv.style.position = "absolute";
     accWeightsDiv.style.left = "20px";
     accWeightsDiv.style.top = "80px"; // updated y position to avoid overlap
-    accWeightsDiv.textContent = "\u{1FA99}: " + acc_weights;
-    accWeightsDiv.style.fontSize = "30px";
+    accWeightsDiv.style.display = "flex";
+    accWeightsDiv.style.alignItems = "middle";
 
-    trackingArea.appendChild(accWeightsDiv);
+    const coinImage = document.createElement("img");
+    coinImage.src = "/static/assets/images/coin.png";
+    coinImage.style.width = "30px";
+    coinImage.style.height = "30px";
+    accWeightsDiv.appendChild(coinImage);
+
+    const weightText = document.createElement("span");
+    weightText.id = "weight-text";
+    weightText.style.marginLeft = "1px";
+    weightText.style.pointerEvents = "none";
+    weightText.textContent = ": " + acc_weights;
+    weightText.style.fontSize = "30px";
+    accWeightsDiv.appendChild(weightText);
+
+    graphArea.appendChild(accWeightsDiv);
 }
-
+function updateWeights(){
+    acc_weights = 0;
+    for (const linkId of pathLinks){
+        acc_weights += linkWeights[linkId];
+    }
+    const weightText = document.querySelector("#weight-text");
+    weightText.textContent = ": " + acc_weights;
+}
 function clickNode(clickedNode){
     var updated_path = false;
     for (let i=0; i<path.length; i++){
@@ -282,14 +298,14 @@ function clickNode(clickedNode){
     )
 
 }
-function updateWeights(){
-    acc_weights = 0;
-    for (const linkId of pathLinks){
-        acc_weights += linkWeights[linkId];
-    }
-    const accWeigthDiv = document.querySelector(".acc-weight");
-    accWeigthDiv.textContent = "\u{1FA99}: " + acc_weights;
-}
+// function updateWeights(){
+//     acc_weights = 0;
+//     for (const linkId of pathLinks){
+//         acc_weights += linkWeights[linkId];
+//     }
+//     const accWeigthDiv = document.querySelector(".acc-weight");
+//     accWeigthDiv.textContent = "\u{1FA99}: " + acc_weights;
+// }
 
 function pushNode(node){
     path.push(node);
@@ -451,6 +467,30 @@ $(`#submit_button`).click(() => {
     )
 })
 
+$(`#reset-graph-button`).click(() => {
+    let updated_path = path.length > 1;
+    for (pathLink of pathLinks){
+        const linkElement = d3.select(`#${pathLink}`);
+        resetLink(linkElement);
+    }
+    pathLinks = [];
+    while (path.length > 1){
+        node = path.pop();
+        resetNode(node);
+    }
+    makeNodeNew(path[0]);
+    updateWeights();
+    if (updated_path){
+        socket.emit("message_command", {
+            "command": {
+                "event": "update_path",
+            "path": path
+            },
+            "room": self_room,
+            "user_id": self_user
+        })
+    }
+})
 
 // !!only for --dev!!
 socket.emit("message_command", {
@@ -472,12 +512,15 @@ $(document).ready(function() {
                     return;
                 }
                 graphDrawn = true;
-                const svg = d3.select("#tracking-area svg");
     
                 // Remove previous graph if it exists
-                svg.select("#graph-container").remove();
+                // d3.select("#graph-area").select("#graph-container").remove();
+                const graphContainer = document.querySelector("#graph-container");
                 const totalWeightDiv = document.querySelector(".total-weight");
                 const accWeightDiv = document.querySelector(".acc-weight");
+                if (graphContainer){
+                    graphContainer.remove();
+                }
                 if (totalWeightDiv){
                     totalWeightDiv.remove();
                 }

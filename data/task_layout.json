@@ -54,8 +54,22 @@
         },
         {
           "layout-type": "div",
-          "id": "tracking-area",
-          "style": "position: relative; width: 1024px; height: 768px; margin: auto; text-align: center"
+          "class": "container",
+          "style": "display: flex; justify-content: center; align-items: flex-start;",
+          "layout-content": [
+            {
+              "layout-type": "div",
+              "id": "graph-area",
+              "style": "position: relative; width: 1024px; height: 768px; margin-right: 0; text-align: center"
+            },
+            {
+              "layout-type": "button",
+              "class": "button",
+              "role": "button",
+              "layout-content": "reset graph",
+              "id": "reset-graph-button"
+            }
+          ]
         }
       ]
     }
@@ -77,6 +91,40 @@
     ".button:hover": {
       "content": "''",
       "background": "#818BAC"
+    },
+    "#reset-graph-button": {
+      "display": "flex",
+      "font-size": "1.3em",
+      "justify-content": "center",
+      "align-items": "center",
+      "background": "rgb(255, 226, 205)",
+      "color": "rgb(230, 92, 0)",
+      "padding": "15px",
+      "margin-top": "20px",
+      "width": "150px",
+      "height": "90px",
+      "border": "none",
+      "cursor": "pointer",
+      "border-radius": "5px",
+      "box-shadow": "rgba(230, 92, 0, 1) 1px 4px 3px 0",
+      "transition": "all 0.1s ease-in-out"
+    },
+    "#reset-graph-button:active": {
+      "transform": "translateY(2px)",
+      "box-shadow": "rgba(230, 92, 0, 1) 0 1px 2px 0"
+    },
+    "#reset-graph-button:active:after": {
+      "content": "''",
+      "position": "absolute",
+      "top": "0",
+      "left": "0",
+      "width": "100%",
+      "height": "100%",
+      "background": "rgba(255, 186, 133, 0.2)",
+      "border-radius": "5px"
+    },
+    "#reset-graph-button:hover": {
+      "font-size": "1.4em"
     }
   },
   "scripts": {
