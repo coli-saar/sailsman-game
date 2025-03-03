@@ -109,8 +109,8 @@ function drawGraph(graph) {
             .attr("cy", weight_y)
             .attr("r", 15)
             .attr("stroke", "black")
-            .attr("stroke-width", 2)
-            .attr("fill", "none");
+            .attr("stroke-width", 4)
+            .attr("fill", "#ffffff");
 
         group.append("image")
             .attr("xlink:href", "/static/assets/images/coin.png")
@@ -259,7 +259,7 @@ function initWeightDiv(){
     accWeightsDiv.style.left = "20px";
     accWeightsDiv.style.top = "80px"; // updated y position to avoid overlap
     accWeightsDiv.style.display = "flex";
-    accWeightsDiv.style.alignItems = "middle";
+    accWeightsDiv.style.alignItems = "center";
 
     const coinImage = document.createElement("img");
     coinImage.src = "/static/assets/images/coin.png";
@@ -287,12 +287,16 @@ function updateWeights(){
 }
 function clickNode(clickedNode){
     const clickedNodeIndex = path.indexOf(clickedNode);
+    const oldPath = [...path];
+
     if (clickedNodeIndex === -1){ // clicked node is not in path
         const last_node = path[path.length - 1];
         const linkId = linkIds[clickedNode.id][last_node.id];
-
+        // const linkElement = d3.select(`#${linkId}`);
         pathLinks.push(linkId)
-        pushNode(clickedNode);
+        path.push(clickedNode);
+
+        // animateCoin(linkElement);
 
         if (path.length === numNodes){
             const linkId = linkIds[clickedNode.id][path[0].id];
@@ -308,6 +312,7 @@ function clickNode(clickedNode){
         }
         else if (clickedNodeIndex === path.length - 1){
             path.pop();
+            pathLinks.pop();
         }
         else{
             while (path.length > clickedNodeIndex + 1){
@@ -323,9 +328,20 @@ function clickNode(clickedNode){
             });
         }
     }
+    
+    const pathLengthDiff = path.length - oldPath.length;
+    if (pathLengthDiff > 0){
+        for (let i = 0; i < pathLengthDiff; i++){
+            const linkId = pathLinks[pathLinks.length - (i + 1)];
+            const linkElement = d3.select(`#${linkId}`);
+            animateCoin(linkElement);
+        }
+    }
 
     updateGraphColoring();
-    updateWeights();
+    if (pathLengthDiff <= 0){
+        updateWeights();
+    }
 
     if (animationData.running){
         if (walkingFigureGif){
@@ -445,16 +461,21 @@ function resetNode(node){
 }
 function colorLinkVisited(link){
     link.selectAll(".link").style("stroke", "lightgreen").style("stroke-width", "8px");
-    link.selectAll(".circle").style("stroke", "lightgreen");
+    link.selectAll("circle").style("stroke", "lightgreen");
 }
 
 function resetLink(link){
+    if (pathLinks.includes(link.attr("id"))){
+        return;
+    }
     link.selectAll(".link").style("stroke", "black").style("stroke-width", "5px");
-    link.selectAll(".circle").style("stroke", "black");
+    link.selectAll("circle").style("stroke", "black");
+    const coinElement = link.select("image");
+    coinElement.attr("transform", "translate(0,0)");
 }
 function colorLinkHovering(link){
     link.selectAll(".link").style("stroke", "orange").style("stroke-width", "8px");
-    link.selectAll(".circle").style("stroke", "orange");
+    link.selectAll("circle").style("stroke", "orange");
 }
 function handleMouseOver(node) {
     this.style.opacity = "0.5";
@@ -533,6 +554,83 @@ function animateGif(source, target) {
         });
 }
 
+// let animationRunningCoin = {};
+function animateCoin(link){
+    // const linkElement = d3.select(`#${linkId}`);
+    const attrWeightDiv = document.querySelector(".acc-weight");
+    const weightCoin = attrWeightDiv.querySelector("img");
+    const parentDiv = document.querySelector("#graph-area");
+    const relX = parentDiv.getBoundingClientRect().x;
+    const relY = parentDiv.getBoundingClientRect().y;
+    const coin = link.select("image");
+    
+    const startX = coin.node().getBoundingClientRect().x - relX;
+    const startY = coin.node().getBoundingClientRect().y - relY;
+
+    const endX = weightCoin.getBoundingClientRect().x - relX;
+    const endY = weightCoin.getBoundingClientRect().y - relY;
+
+    // const dx = endX - startX;
+    // const dy = endY - startY;
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const unitX = dx / distance;
+    const unitY = dy / distance;
+
+    const oscillationPeriod = 400;
+    let oscillationFrame = 0;
+    const duration = 800;
+    const amplitude = 40;
+    // animationRunningCoin[coin.attr("id")] = true;
+    let randomOffset = amplitude / 4 + 3 * Math.random() * amplitude / 4;
+    coin.transition()
+        .duration(duration)
+        .attrTween("transform", function() {
+            return function(t) {
+                oscillationFrame = Math.floor(t * duration);
+                if (oscillationFrame >= oscillationPeriod){
+                    randomOffset = randomOffset / 4 + 3 * Math.random() * randomOffset / 4;
+                }
+                oscillationFrame = oscillationFrame % oscillationPeriod;
+                const offset = randomOffset * Math.sin((oscillationFrame / oscillationPeriod) * Math.PI * 2);
+                const x = dx * t + unitX * offset;
+                const y = dy * t - unitY * offset;
+                return `translate(${x}, ${y})`;
+            };
+        })
+        .on("end", function() {
+            updateWeights();
+            // animationRunningCoin[coin.attr("id")] = false;
+        });
+    // const source = {x: startX, y: startY};
+    // const target = {x: endX, y: endY};
+    // coinOscillation(coin, source, target);
+}
+// function coinOscillation(coin, source, target){
+//     if (!animationRunningCoin[coin.attr("id")]){
+//         return;
+//     }
+//     const randomOffset = Math.random() * 50;
+//     const dx = target.x - source.x;
+//     const dy = target.y - source.y;
+//     const distance = Math.sqrt(dx * dx + dy * dy);
+//     const unitX = dx / distance;
+//     const unitY = dy / distance;
+//     coin.transition()
+//         .duration(100)
+//         .attrTween("transform", function(){
+//             return function(t){
+//                 const offset = randomOffset * Math.sin(t * Math.PI * 2);
+//                 const x = offset * unitX;
+//                 const y = offset * unitY;
+//                 return `translate(${x}, ${y})`;
+//             };
+//         })
+//         .on("end", function(){
+//             coinOscillation(coin, source, target);
+//         })
+// }
 function handleMouseOut(node) {
     this.style.opacity = "1";
     colorNodeMouseOut(node);
@@ -566,31 +664,13 @@ $(`#submit_button`).click(() => {
 })
 
 $(`#reset-graph-button`).click(() => {
-    let updated_path = path.length > 1;
+    // let updated_path = path.length > 1;
+    console.log("reset graph");
     path = [path[0]];
     pathLinks = [];
-    // for (const linkId of linkIds.flat()) {
-    //     const linkElement = d3.select(`#${linkId}`);
-    //     resetLink(linkElement);
-    // }
-    // pathLinks = [];
-    // while (path.length > 1){
-    //     node = path.pop();
-    //     resetNode(node);
-    // }
-    // makeNodeNew(path[0]);
+
     updateGraphColoring();
     updateWeights();
-    if (updated_path){
-        socket.emit("message_command", {
-            "command": {
-                "event": "update_path",
-            "path": path
-            },
-            "room": self_room,
-            "user_id": self_user
-        })
-    }
 })
 
 // !!only for --dev!!
