@@ -182,7 +182,63 @@ function drawGraph(graph) {
             };
         });
     });
+    imageLoadPromises[0].then(() => {
+        const firstNode = nodes[0];
+        // const arrowGroup = container.append("g");
 
+        const nodeImage = d3.select(`#image-${firstNode.id}`);
+        const nodeWidth = nodeImage.attr("width");
+        const nodeHeight = nodeImage.attr("height");
+
+        // Define the arrow pointing from top right to bottom left
+        // Define arrow properties
+        const arrowLength = 50;
+        const startX = firstNode.x + nodeWidth / 2 + arrowLength / Math.sqrt(2), startY = firstNode.y - nodeHeight / 2 - arrowLength / Math.sqrt(2); // Arrow start position
+        const endX = startX - arrowLength / Math.sqrt(2);
+        const endY = startY + arrowLength / Math.sqrt(2);
+
+        // Add an arrow marker definition
+        container.append("defs").append("marker")
+            .attr("id", "arrowhead")
+            .attr("viewBox", "0 0 10 10")
+            .attr("refX", 10)
+            .attr("refY", 5)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto-start-reverse")
+            .append("path")
+            .attr("d", "M 0 0 L 10 5 L 0 10 Z")
+            .attr("fill", "black");
+
+        // Draw the diagonal arrow
+        container.append("line")
+            .attr("x1", startX)
+            .attr("y1", startY)
+            .attr("x2", endX)
+            .attr("y2", endY)
+            .attr("stroke", "black")
+            .attr("stroke-width", 2)
+            .attr("marker-end", "url(#arrowhead)");
+
+        // Add the label above the arrow with wrapping
+        const angle = 180 + Math.atan2(endY - startY, endX - startX) * 180 / Math.PI; // Calculate the angle in degrees
+        const diagonalOffset = 10;
+        const textWidth = 80;
+        const text = container.append("foreignObject")
+            // .attr("x", (startX + endX) / 2 - arrowLength / 2)
+            // .attr("y", (startY + endY) / 2 - 30)
+            .attr("x", endX - (textWidth - arrowLength / Math.sqrt(2)) / 2)
+            .attr("y", startY)
+            .attr("width", textWidth) // Fixed width matching arrow length
+            .attr("height", 50) // Adjust as needed
+            .attr("transform", `rotate(${angle}, ${(startX + endX) / 2}, ${(startY + endY) / 2}) translate(0, -20)`) // Rotate the text
+            .append("xhtml:div")
+            .style("font", "12px sans-serif")
+            .style("text-align", "center")
+            .style("word-wrap", "break-word")
+            .style("color", "black")
+            .html("You start and end here");
+        });
     initWeightDiv();
     Promise.all(imageLoadPromises).then(() => {
         pushNode(nodes[0]);
@@ -609,3 +665,29 @@ $(document).ready(function() {
         "user_id": self_user
     })
 })
+
+// Function to wrap text
+function wrapText(text, width) {
+    text.each(function() {
+        const text = d3.select(this);
+        const words = text.text().split(/\s+/).reverse();
+        let word;
+        let line = [];
+        let lineNumber = 0;
+        const lineHeight = 1.1; // ems
+        const y = text.attr("y");
+        const dy = parseFloat(text.attr("dy"));
+        let tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em");
+        
+        while (word = words.pop()) {
+            line.push(word);
+            tspan.text(line.join(" "));
+            if (tspan.node().getComputedTextLength() > width) {
+                line.pop();
+                tspan.text(line.join(" "));
+                line = [word];
+                tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", ++lineNumber * lineHeight + dy + "em").text(word);
+            }
+        }
+    });
+}
