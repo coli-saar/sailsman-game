@@ -308,7 +308,9 @@ function clickNode(clickedNode){
             return;
         }
         else if (clickedNodeIndex === 0 && path.length === numNodes){
+            pathLinks.push(linkIds[path[path.length - 1].id][clickedNode.id]);
             path.push(clickedNode);
+
         }
         else if (clickedNodeIndex === path.length - 1){
             path.pop();
