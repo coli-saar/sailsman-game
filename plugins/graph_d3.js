@@ -222,7 +222,7 @@ function drawGraph(graph) {
             .attr("fill", "#ffffff");
 
         group.append("image")
-            .attr("xlink:href", "/static/assets/images/coin.png")
+            .attr("xlink:href", loadedImages["coin"].src)
             .attr("x", weight_x - 15)
             .attr("y", weight_y - 15)
             .attr("width", 30);
@@ -372,7 +372,7 @@ function initWeightDiv(){
     accWeightsDiv.style.left = (graphSvgBoundingBox.left - parentBoundingBox.left) + "px";
 
     const coinImage = document.createElement("img");
-    coinImage.src = "/static/assets/images/coin.png";
+    coinImage.src = loadedImages["coin"].src;
     coinImage.style.width = "30px";
     coinImage.style.height = "30px";
     accWeightsDiv.appendChild(coinImage);
@@ -576,7 +576,7 @@ function resetLink(link){
     const coinElement = link.select("image");
     if (coinElement.empty()){
         link.insert("image", "text")
-            .attr("xlink:href", "assets/images/coin.png")
+            .attr("xlink:href", loadedImages["coin"].src)
             .attr("x", parseFloat(circleElement.attr("cx")) - 15)
             .attr("y", parseFloat(circleElement.attr("cy")) - 15)
             .attr("width", 30);
@@ -767,17 +767,13 @@ function loadImages(){
         imageLoadPromises.push(tmpImg.onload);
         loadedImages[i] = tmpImg;
     }
-    console.log("Code made it here");
-    console.log("After the nodes");
     const tmpImg = new Image();
     tmpImg.src = "/static/assets/images/standing-stick.png";
     imageLoadPromises.push(tmpImg.onload);
-    console.log("Stick image loaded");
     loadedImages["standing-stick"] = tmpImg;
     const tmpCoin = new Image();
     tmpCoin.src = "/static/assets/images/coin.png";
     imageLoadPromises.push(tmpCoin.onload);
-    console.log("Coin image loaded");
     loadedImages["coin"] = tmpCoin;
     return Promise.all(imageLoadPromises);
 }
