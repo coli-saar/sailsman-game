@@ -371,19 +371,26 @@ function initWeightDiv(){
 
     accWeightsDiv.style.left = (graphSvgBoundingBox.left - parentBoundingBox.left) + "px";
 
-    const coinImage = document.createElement("img");
-    coinImage.src = loadedImages["coin"].src;
-    coinImage.style.width = "30px";
-    coinImage.style.height = "30px";
-    accWeightsDiv.appendChild(coinImage);
+    let coinImage = document.querySelector("#coin-image");
+    if (!coinImage){
+        coinImage = document.createElement("img");
+        coinImage.id = "coin-image";
+        coinImage.src = loadedImages["coin"].src;
+        coinImage.style.width = "30px";
+        coinImage.style.height = "30px";
+        accWeightsDiv.appendChild(coinImage);
+    }
 
-    const weightText = document.createElement("span");
-    weightText.id = "weight-text";
-    weightText.style.marginLeft = "1px";
-    weightText.style.pointerEvents = "none";
+    let weightText = document.querySelector("#weight-text");
+    if (!weightText){
+        weightText = document.createElement("span");
+        weightText.id = "weight-text";
+        weightText.style.marginLeft = "1px";
+        weightText.style.pointerEvents = "none";
+        weightText.style.fontSize = "30px";
+        accWeightsDiv.appendChild(weightText);
+    }
     weightText.textContent = ": " + acc_weights;
-    weightText.style.fontSize = "30px";
-    accWeightsDiv.appendChild(weightText);
 }
 function updateWeights(){
     acc_weights = 0;
