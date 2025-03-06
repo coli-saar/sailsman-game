@@ -60,14 +60,27 @@
             {
               "layout-type": "div",
               "id": "graph-area",
-              "style": "position: relative; width: 1024px; height: 768px; margin-right: 0; text-align: center"
-            },
-            {
-              "layout-type": "button",
-              "class": "button",
-              "role": "button",
-              "layout-content": "reset graph",
-              "id": "reset-graph-button"
+              "style": "position: relative; display: flex; flex-direction: row; align-items: top; justify-content: center; width: 90%; height: 100%; margin: 0px; text-align: center;",
+              "layout-content": [
+                {
+                  "layout-type": "div",
+                  "id": "acc-weights-div",
+                  "style": "position: absolute; display: flex; align-items: center; flex: 0 1 auto; height: min-content;"
+                },
+                {
+                  "layout-type": "svg",
+                  "id": "graph-svg",
+                  "style": "aspect-ratio: 1024/700; width: 90%; height: auto; max-width: 100vh; margin: 0;"
+                },
+                {
+                  "layout-type": "button",
+                  "class": "button",
+                  "role": "button",
+                  "layout-content": "reset graph",
+                  "id": "reset-graph-button",
+                  "style": "margin-left: 5px; width: 10%; aspect-ratio: 7/9;"
+                }
+              ]
             }
           ]
         }
@@ -124,7 +137,7 @@
       "border-radius": "5px"
     },
     "#reset-graph-button:hover": {
-      "font-size": "1.4em"
+      "font-size": "1.1em"
     }
   },
   "scripts": {

@@ -11,7 +11,7 @@ const imagePaths = [
     "/static/assets/images/attic.png",
     "/static/assets/images/bathroom.png"
 ];
-const node_image_width = 170;
+// const node_image_width = 120;
 const backgroundColor = "#E5E7E9";
 
 let path = [];
@@ -32,21 +32,139 @@ let animationData = {
 };
 let walkingFigureGif;
 
+// Styling
+const BORDERSIZE = 2;
+const NODEIMAGEWIDTH = 120;
+const NODEMARGIN = 4;
+var WEIGHTOFFSET = 50;
+
+const loadedImages = {};
+
+
 
 function drawGraph(graph) {
-    const width = 1024;
-    const height = 768;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const margin = 70;
-    const radius = width < height ? width / 2 - margin : height / 2 - margin;
+    const svg = d3.select("#graph-area")
+        .select("svg")
+        .empty()
+        ? d3.select("#graph-area").append("svg")
+        : d3.select("#graph-area svg");
 
+    const container = svg.append("g").attr("id", "graph-container");
+    const boundingBox = svg.node().getBoundingClientRect();
+    const centerX = boundingBox.width / 2;
+    const centerY = boundingBox.height / 2;
+        // const margin = 0;
+        // const nodeImageWidth = boundingBox.width / 10;
+    
     // Generate nodes with random positions
     const nodes = d3.range(numNodes).map((d, i) => ({
         id: i,
-        x: centerX + radius * Math.cos(2 * Math.PI * i / numNodes),
-        y: centerY + radius * Math.sin(2 * Math.PI * i / numNodes)
     }));
+    
+    
+    // Draw nodes
+    nodes.forEach(node => {
+        const group = container.append("g").attr("id", `node-${node.id}`);
+
+        const tmpImg = loadedImages[node.id];
+        const naturalWidth = tmpImg.naturalWidth;
+        const naturalHeight = tmpImg.naturalHeight;
+        const imageAspectRatio = naturalWidth / naturalHeight;
+        const imgWidth = NODEIMAGEWIDTH;
+        const imgHeight = NODEIMAGEWIDTH / imageAspectRatio;
+
+        const radius = Math.min(boundingBox.width - imgWidth, boundingBox.height - imgHeight) / 2 - NODEMARGIN;
+
+        const x = centerX + radius * Math.cos(2 * Math.PI * node.id / numNodes);
+        const y = centerY + radius * Math.sin(2 * Math.PI * node.id / numNodes);
+
+        node.x = x;
+        node.y = y;
+
+        group.append("rect")
+            .attr("class", "node")
+            .attr("id", `rect-${node.id}`)
+            .attr("x", x)
+            .attr("y", y)
+            .attr("transform", `translate(${(- (imgWidth + BORDERSIZE)) / 2}, ${(- (imgHeight + BORDERSIZE)) / 2})`)
+            .attr("width", imgWidth + BORDERSIZE)
+            .attr("height", imgHeight + BORDERSIZE)
+            .attr("fill", backgroundColor)
+            .attr("stroke", "black")
+            .attr("stroke-width", BORDERSIZE)
+            .attr("stroke-dasharray", "7,1");
+
+        group.append("image")
+            .attr("class", "node")
+            .attr("id", `image-${node.id}`)
+            .attr("x", x)
+            .attr("y", y)
+            .attr("transform", `translate(${- imgWidth / 2}, ${- imgHeight / 2})`)
+            .attr("width", imgWidth)
+            .attr("height", imgHeight)
+            .attr("xlink:href", tmpImg.src)
+            .on("mouseover", function() { handleMouseOver.call(this, node); })
+            .on("mouseout", function() { handleMouseOut.call(this, node); })
+            .on("click", function() {
+                clickNode(node);
+        });
+    });
+
+    const firstNode = nodes[0];
+
+    const nodeImage = d3.select(`#image-${firstNode.id}`);
+    const nodeWidth = nodeImage.attr("width");
+    const nodeHeight = nodeImage.attr("height");
+
+    // Define the arrow pointing from top right to bottom left
+    // Define arrow properties
+    const arrowLength = 50;
+    const startX = firstNode.x + nodeWidth / 2 + arrowLength / Math.sqrt(2), startY = firstNode.y - nodeHeight / 2 - arrowLength / Math.sqrt(2); // Arrow start position
+    const endX = startX - arrowLength / Math.sqrt(2);
+    const endY = startY + arrowLength / Math.sqrt(2);
+
+    // Add an arrow marker definition
+    container.append("defs").append("marker")
+        .attr("id", "arrowhead")
+        .attr("viewBox", "0 0 10 10")
+        .attr("refX", 10)
+        .attr("refY", 5)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto-start-reverse")
+        .append("path")
+        .attr("d", "M 0 0 L 10 5 L 0 10 Z")
+        .attr("fill", "black");
+
+    // Draw the diagonal arrow
+    container.append("line")
+        .attr("id", "start-arrow")
+        .attr("x1", startX)
+        .attr("y1", startY)
+        .attr("x2", endX)
+        .attr("y2", endY)
+        .attr("stroke", "black")
+        .attr("stroke-width", 2)
+        .attr("marker-end", "url(#arrowhead)");
+
+    // Add the label above the arrow with wrapping
+    const angle = 180 + Math.atan2(endY - startY, endX - startX) * 180 / Math.PI; // Calculate the angle in degrees
+    const textWidth = 80;
+    container.append("foreignObject")
+        .attr("id", "start-arrow-label")
+        .attr("x", endX - (textWidth - arrowLength / Math.sqrt(2)) / 2)
+        .attr("y", startY)
+        .attr("width", textWidth) // Fixed width matching arrow length
+        .attr("height", 50) // Adjust as needed
+        .attr("transform", `rotate(${angle}, ${(startX + endX) / 2}, ${(startY + endY) / 2}) translate(0, -20)`) // Rotate the text
+        .append("xhtml:div")
+        .style("font", "12px sans-serif")
+        .style("text-align", "center")
+        .style("word-wrap", "break-word")
+        .style("color", "black")
+        .html("You start and end here");
+
+    initWeightDiv();
 
     // Generate links (fully connected)
     const links = [];
@@ -55,16 +173,7 @@ function drawGraph(graph) {
             links.push({ source: nodes[i], target: nodes[j] });
         }
     }
-    const svg = d3.select("#graph-area")
-        .select("svg")
-        .empty()
-        ? d3.select("#graph-area").append("svg")
-        : d3.select("#graph-area svg");
-    svg.attr("width", 1024)
-        .attr("height", 768);
-    const container = svg.append("g").attr("id", "graph-container");
 
-    var weight_offset = 50;
     // Draw links
     links.forEach((link, index) => {
         const x1 = link.source.x;
@@ -82,14 +191,14 @@ function drawGraph(graph) {
         const center_weight_y = (y1 + y2) / 2;
         
         const distanceFromCenter = Math.sqrt((center_weight_x - centerX) ** 2 + (center_weight_y - centerY) ** 2);
-        const delta_diff = Math.max(weight_offset - distanceFromCenter, 0);
+        const delta_diff = Math.max(WEIGHTOFFSET - distanceFromCenter, 0);
         
         const weight_x = center_weight_x + unitX * delta_diff;
         const weight_y = center_weight_y + unitY * delta_diff;
 
         // store link id
         const linkId = "link" + index;
-        const group = container.append("g").attr("id", `${linkId}`);
+        const group = container.insert("g", ":first-child").attr("id", `${linkId}`);
         linkIds[link.source.id][link.target.id] = linkId;
         linkIds[link.target.id][link.source.id] = linkId;
         linkWeights[linkId] = graph[link.source.id][link.target.id];
@@ -117,7 +226,7 @@ function drawGraph(graph) {
             .attr("x", weight_x - 15)
             .attr("y", weight_y - 15)
             .attr("width", 30);
-
+        
         group.append("text")
             .attr("class", "edge_weight")
             .attr("x", weight_x)
@@ -130,136 +239,137 @@ function drawGraph(graph) {
             .attr("font-size", "20pt");
         
     });
-
-    // Draw nodes
-    const imageLoadPromises = nodes.map(node => {
-        return new Promise((resolve, reject) => {
-            const group = container.append("g");
-            const imagePath = imagePaths[node.id];
-
-            const tmpImg = new Image();
-            tmpImg.src = imagePath;
-
-            tmpImg.onload = function() {
-                const naturalWidth = tmpImg.naturalWidth;
-                const naturalHeight = tmpImg.naturalHeight;
-                const scaleFactor = node_image_width / naturalWidth;
-                const scaledWidth = naturalWidth * scaleFactor;
-                const scaledHeight = naturalHeight * scaleFactor;
-
-                group.append("rect")
-                    .attr("class", "node")
-                    .attr("id", `rect-${node.id}`)
-                    .attr("x", node.x - (scaledWidth + 2) / 2)
-                    .attr("y", node.y - (scaledHeight + 2) / 2)
-                    .attr("width", scaledWidth + 2)
-                    .attr("height", scaledHeight + 2)
-                    .attr("fill", backgroundColor)
-                    .attr("stroke", "black")
-                    .attr("stroke-width", "2")
-                    .attr("stroke-dasharray", "7,1");
-
-                group.append("image")
-                    .attr("class", "node")
-                    .attr("id", `image-${node.id}`)
-                    .attr("x", node.x - scaledWidth / 2)
-                    .attr("y", node.y - scaledHeight / 2)
-                    .attr("width", scaledWidth)
-                    .attr("height", scaledHeight)
-                    .attr("xlink:href", imagePath)
-                    .on("mouseover", function() { handleMouseOver.call(this, node); })
-                    .on("mouseout", function() { handleMouseOut.call(this, node); })
-                    .on("click", function() {
-                        clickNode(node);
-                    });
-
-                resolve();
-            };
-
-            tmpImg.onerror = function() {
-                console.error(`Failed to load image for node ${node.id}`);
-                resolve();
-            };
-        });
-    });
-    imageLoadPromises[0].then(() => {
-        const firstNode = nodes[0];
-        // const arrowGroup = container.append("g");
-
-        const nodeImage = d3.select(`#image-${firstNode.id}`);
-        const nodeWidth = nodeImage.attr("width");
-        const nodeHeight = nodeImage.attr("height");
-
-        // Define the arrow pointing from top right to bottom left
-        // Define arrow properties
-        const arrowLength = 50;
-        const startX = firstNode.x + nodeWidth / 2 + arrowLength / Math.sqrt(2), startY = firstNode.y - nodeHeight / 2 - arrowLength / Math.sqrt(2); // Arrow start position
-        const endX = startX - arrowLength / Math.sqrt(2);
-        const endY = startY + arrowLength / Math.sqrt(2);
-
-        // Add an arrow marker definition
-        container.append("defs").append("marker")
-            .attr("id", "arrowhead")
-            .attr("viewBox", "0 0 10 10")
-            .attr("refX", 10)
-            .attr("refY", 5)
-            .attr("markerWidth", 6)
-            .attr("markerHeight", 6)
-            .attr("orient", "auto-start-reverse")
-            .append("path")
-            .attr("d", "M 0 0 L 10 5 L 0 10 Z")
-            .attr("fill", "black");
-
-        // Draw the diagonal arrow
-        container.append("line")
-            .attr("x1", startX)
-            .attr("y1", startY)
-            .attr("x2", endX)
-            .attr("y2", endY)
-            .attr("stroke", "black")
-            .attr("stroke-width", 2)
-            .attr("marker-end", "url(#arrowhead)");
-
-        // Add the label above the arrow with wrapping
-        const angle = 180 + Math.atan2(endY - startY, endX - startX) * 180 / Math.PI; // Calculate the angle in degrees
-        const diagonalOffset = 10;
-        const textWidth = 80;
-        const text = container.append("foreignObject")
-            // .attr("x", (startX + endX) / 2 - arrowLength / 2)
-            // .attr("y", (startY + endY) / 2 - 30)
-            .attr("x", endX - (textWidth - arrowLength / Math.sqrt(2)) / 2)
-            .attr("y", startY)
-            .attr("width", textWidth) // Fixed width matching arrow length
-            .attr("height", 50) // Adjust as needed
-            .attr("transform", `rotate(${angle}, ${(startX + endX) / 2}, ${(startY + endY) / 2}) translate(0, -20)`) // Rotate the text
-            .append("xhtml:div")
-            .style("font", "12px sans-serif")
-            .style("text-align", "center")
-            .style("word-wrap", "break-word")
-            .style("color", "black")
-            .html("You start and end here");
-        });
-    initWeightDiv();
-    Promise.all(imageLoadPromises).then(() => {
-        pushNode(nodes[0]);
-        socket.emit("message_command", {
-            "command": {
-                "event": "update_path",
-                "path": path
-            },
-            "room": self_room,
-            "user_id": self_user
-        });
+    pushNode(nodes[0]);
+    socket.emit("message_command", {
+        "command": {
+            "event": "update_path",
+            "path": path
+        },
+        "room": self_room,
+        "user_id": self_user
     });
 }
+
+function resizeGraph() {
+    const svg = d3.select("#graph-area svg");
+    const boundingBox = svg.node().getBoundingClientRect();
+    const centerX = boundingBox.width / 2;
+    const centerY = boundingBox.height / 2;
+
+    const nodes = d3.range(numNodes).map((d, i) => ({
+        id: i,
+    }));
+
+    nodes.forEach((node, i) => {
+        const nodeImg = d3.select(`#image-${i}`);
+        const nodeRect = d3.select(`#rect-${i}`);
+        const currentNodeImageWidth = nodeImg.attr("width");
+        const currentNodeImageHeight = nodeImg.attr("height");
+        const imageAspectRatio = currentNodeImageWidth / currentNodeImageHeight;
+        const imgWidth = NODEIMAGEWIDTH;
+        const imgHeight = NODEIMAGEWIDTH / imageAspectRatio;
+
+        const radius = Math.min(boundingBox.width - imgWidth, boundingBox.height - imgHeight) / 2 - NODEMARGIN;
+        const x = centerX + radius * Math.cos(2 * Math.PI * node.id / numNodes);
+        const y = centerY + radius * Math.sin(2 * Math.PI * node.id / numNodes);
+
+        node.x = x;
+        node.y = y;
+
+        nodeImg.attr("x", x);
+        nodeImg.attr("y", y);
+
+        nodeRect.attr("x", x);
+        nodeRect.attr("y", y);
+
+    });
+
+    // Update link positions in the DOM
+    const links = [];
+    for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            links.push({ source: nodes[i], target: nodes[j] });
+        }
+    }
+
+    links.forEach((link, index) => {
+        const x1 = link.source.x;
+        const y1 = link.source.y;
+        const x2 = link.target.x;
+        const y2 = link.target.y;
+
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const unitX = dx / distance;
+        const unitY = dy / distance;
+        const center_weight_x = (x1 + x2) / 2;
+        const center_weight_y = (y1 + y2) / 2;
+        
+        const distanceFromCenter = Math.sqrt((center_weight_x - centerX) ** 2 + (center_weight_y - centerY) ** 2);
+        const delta_diff = Math.max(WEIGHTOFFSET - distanceFromCenter, 0);
+        
+        const weight_x = center_weight_x + unitX * delta_diff;
+        const weight_y = center_weight_y + unitY * delta_diff;
+
+        const linkId = "link" + index;
+        const linkElement = d3.select(`#${linkId}`);
+        linkElement.select("line").attr("x1", x1).attr("y1", y1).attr("x2", x2).attr("y2", y2);
+        linkElement.select("circle").attr("cx", weight_x).attr("cy", weight_y);
+        linkElement.select("image").attr("x", weight_x - 15).attr("y", weight_y - 15);
+        linkElement.select("text").attr("x", weight_x).attr("y", weight_y + 2);
+    });
+    makeNodeNew(path[path.length - 1]);
+
+    // update start arrow
+    const firstNode = nodes[0];
+
+    const nodeImage = d3.select(`#image-${firstNode.id}`);
+    const nodeWidth = nodeImage.attr("width");
+    const nodeHeight = nodeImage.attr("height");
+
+    // Define the arrow pointing from top right to bottom left
+    // Define arrow properties
+    const arrowLength = 50;
+    const startX = firstNode.x + nodeWidth / 2 + arrowLength / Math.sqrt(2), startY = firstNode.y - nodeHeight / 2 - arrowLength / Math.sqrt(2); // Arrow start position
+    const endX = startX - arrowLength / Math.sqrt(2);
+    const endY = startY + arrowLength / Math.sqrt(2);
+
+    // Add an arrow marker definition
+    const startArrow = document.querySelector("#start-arrow");
+    startArrow.setAttribute("x1", startX);
+    startArrow.setAttribute("y1", startY);
+    startArrow.setAttribute("x2", endX);
+    startArrow.setAttribute("y2", endY);
+
+    // Draw the diagonal arrow
+
+    // Add the label above the arrow with wrapping
+    const angle = 180 + Math.atan2(endY - startY, endX - startX) * 180 / Math.PI; // Calculate the angle in degrees
+    const textWidth = 80;
+    const label = document.querySelector("#start-arrow-label");
+    label.setAttribute("x", endX - (textWidth - arrowLength / Math.sqrt(2)) / 2);
+    label.setAttribute("y", startY);
+    label.setAttribute("transform", `rotate(${angle}, ${(startX + endX) / 2}, ${(startY + endY) / 2}) translate(0, -20)`);
+
+    // update acc weights div
+    const accWeightsDiv = document.querySelector("#acc-weights-div");
+    const graphSvg = document.querySelector("#graph-svg");
+    const graphSvgBoundingBox = graphSvg.getBoundingClientRect();
+    const parentBoundingBox = graphSvg.parentElement.getBoundingClientRect();
+    accWeightsDiv.style.left = (graphSvgBoundingBox.left - parentBoundingBox.left) + "px";
+}
+
+// Add event listener for window resize
+window.addEventListener("resize", resizeGraph);
+
 function initWeightDiv(){
-    const accWeightsDiv = document.createElement("div");
-    accWeightsDiv.className = "acc-weight";
-    accWeightsDiv.style.position = "absolute";
-    accWeightsDiv.style.left = "20px";
-    accWeightsDiv.style.top = "80px"; // updated y position to avoid overlap
-    accWeightsDiv.style.display = "flex";
-    accWeightsDiv.style.alignItems = "center";
+    const accWeightsDiv = document.querySelector("#acc-weights-div");
+    const graphSvg = document.querySelector("#graph-svg");
+    const graphSvgBoundingBox = graphSvg.getBoundingClientRect();
+    const parentBoundingBox = graphSvg.parentElement.getBoundingClientRect();
+
+    accWeightsDiv.style.left = (graphSvgBoundingBox.left - parentBoundingBox.left) + "px";
 
     const coinImage = document.createElement("img");
     coinImage.src = "/static/assets/images/coin.png";
@@ -274,8 +384,6 @@ function initWeightDiv(){
     weightText.textContent = ": " + acc_weights;
     weightText.style.fontSize = "30px";
     accWeightsDiv.appendChild(weightText);
-
-    graphArea.appendChild(accWeightsDiv);
 }
 function updateWeights(){
     acc_weights = 0;
@@ -292,17 +400,8 @@ function clickNode(clickedNode){
     if (clickedNodeIndex === -1){ // clicked node is not in path
         const last_node = path[path.length - 1];
         const linkId = linkIds[clickedNode.id][last_node.id];
-        // const linkElement = d3.select(`#${linkId}`);
         pathLinks.push(linkId)
         path.push(clickedNode);
-
-        // animateCoin(linkElement);
-
-        if (path.length === numNodes){
-            const linkId = linkIds[clickedNode.id][path[0].id];
-            pathLinks.push(linkId);
-            pushNode(path[0]);
-        }
     }else{
         if (path.length === 1){
             return;
@@ -396,40 +495,41 @@ function makeNodeNew(node){
     // const stickFigureId = `stick-figure-${node.id}`;
     let stickFigure = d3.select(`#stick-figure`);
     const nodeImage = d3.select(`#image-${node.id}`);
-    const nodeImageWidth = nodeImage.attr("width");
-    const nodeImageHeight = nodeImage.attr("height");
-    const svgCenterX = d3.select("#graph-container").node().getBoundingClientRect().width / 2;
-    const tmpImg = new Image();
-    tmpImg.src = "/static/assets/images/standing-stick.png";
-    tmpImg.onload = function() {
-        const originalStickFigureWidth = tmpImg.naturalWidth;
-        const originalStickFigureHeight = tmpImg.naturalHeight;
-        const scaleFactor = nodeImageHeight / originalStickFigureHeight;
-        const scaledStickFigureWidth = originalStickFigureWidth * scaleFactor;
-        const scaledStickFigureHeight = originalStickFigureHeight * scaleFactor;
-
-        // Add figure to svg if it doesn't exist
-        if (stickFigure.empty()) {
-            const svgContainer = d3.select("#graph-container");
-            stickFigure = svgContainer.append("image")
-                .attr("id", "stick-figure")
-                .attr("href", "/static/assets/images/standing-stick.png")
-                .attr("height", scaledStickFigureHeight)
-                .attr("width", scaledStickFigureWidth)
-        }
-        stickFigure.attr("y", node.y - nodeImageHeight / 2);
-        if (node.x < svgCenterX) {
-                stickFigure.attr("x", 0)
-                .attr("transform", `scale(-1, 1) translate(${- (node.x - nodeImageWidth / 2)}, 0)`)
-            } else {
-                stickFigure.attr("x", node.x + nodeImageWidth / 2)
-                .attr("transform", `scale(1, 1)`);
-        }
-    };
-    tmpImg.onerror = function() {
-        console.error("Failed to load stick figure image");
-    };
-            
+    const nodeImageWidth = parseFloat(nodeImage.attr("width"));
+    const nodeImageHeight = parseFloat(nodeImage.attr("height"));
+    const nodeImageX = parseFloat(nodeImage.attr("x"));
+    const nodeImageY = parseFloat(nodeImage.attr("y"));
+    const svgCenterX = d3.select("#graph-svg").node().getBoundingClientRect().width / 2;
+    
+    let originalStickFigureWidth = 0;
+    let originalStickFigureHeight = 0;
+    
+    if (stickFigure.empty()){
+        const svgContainer = d3.select("#graph-container");
+        stickFigure = svgContainer.append("image")
+        .attr("id", "stick-figure")
+        .attr("href", loadedImages["standing-stick"].src);
+        originalStickFigureWidth = loadedImages["standing-stick"].naturalWidth;
+        originalStickFigureHeight = loadedImages["standing-stick"].naturalHeight;
+    }else{
+        originalStickFigureWidth = stickFigure.attr("width");
+        originalStickFigureHeight = stickFigure.attr("height");
+    }
+    const scaleFactor = nodeImageHeight / originalStickFigureHeight;
+    const scaledStickFigureWidth = originalStickFigureWidth * scaleFactor;
+    const scaledStickFigureHeight = originalStickFigureHeight * scaleFactor;
+    
+    stickFigure.attr("height", scaledStickFigureHeight)
+    .attr("width", scaledStickFigureWidth)
+    .attr("y", nodeImageY - nodeImageHeight / 2);
+    
+    if (nodeImageX < svgCenterX) {
+        stickFigure.attr("x", 0)
+        .attr("transform", `scale(-1, 1) translate(${- (nodeImageX - nodeImageWidth / 2)}, 0)`)
+    } else {
+        stickFigure.attr("x", nodeImageX + nodeImageWidth / 2)
+            .attr("transform", `scale(1, 1)`);
+    }   
 }
 function makeNodeOld(node){
     return;
@@ -471,9 +571,19 @@ function resetLink(link){
         return;
     }
     link.selectAll(".link").style("stroke", "black").style("stroke-width", "5px");
-    link.selectAll("circle").style("stroke", "black");
+    const circleElement = link.selectAll("circle");
+    circleElement.style("stroke", "black");
     const coinElement = link.select("image");
-    coinElement.attr("transform", "translate(0,0)");
+    if (coinElement.empty()){
+        link.insert("image", "text")
+            .attr("xlink:href", "assets/images/coin.png")
+            .attr("x", parseFloat(circleElement.attr("cx")) - 15)
+            .attr("y", parseFloat(circleElement.attr("cy")) - 15)
+            .attr("width", 30);
+    }else{
+        coinElement.interrupt();
+        coinElement.attr("transform", "translate(0,0)");
+    }
 }
 function colorLinkHovering(link){
     link.selectAll(".link").style("stroke", "orange").style("stroke-width", "8px");
@@ -490,15 +600,19 @@ function handleMouseOver(node) {
         const lastNode = path[path.length - 1];
         const linkId = linkIds[node.id][lastNode.id];
         const linkElement = d3.select(`#${linkId}`);
+        const nodeX = parseFloat(d3.select(`#rect-${node.id}`).attr("x"));
+        const nodeY = parseFloat(d3.select(`#rect-${node.id}`).attr("y"));
+        const lastNodeX = parseFloat(d3.select(`#rect-${lastNode.id}`).attr("x"));
+        const lastNodeY = parseFloat(d3.select(`#rect-${lastNode.id}`).attr("y"));
         colorLinkHovering(linkElement);
 
-        const dx = node.x - lastNode.x;
-        const dy = node.y - lastNode.y;
+        const dx = nodeX - lastNodeX;
+        const dy = nodeY - lastNodeY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const unitX = dx / distance;
         const unitY = dy / distance;
-        const source = { x: lastNode.x + dx / 2 - unitX * 60, y: lastNode.y + dy / 2 - unitY * 60 };
-        const target = { x: lastNode.x + dx / 2 + unitX * 60, y: lastNode.y + dy / 2 + unitY * 60 };
+        const source = { x: lastNodeX + dx / 2 - unitX * 60, y: lastNodeY + dy / 2 - unitY * 60 };
+        const target = { x: lastNodeX + dx / 2 + unitX * 60, y: lastNodeY + dy / 2 + unitY * 60 };
 
         walkingFigureGif = d3.select("#graph-container")
             .append("image")
@@ -556,10 +670,8 @@ function animateGif(source, target) {
         });
 }
 
-// let animationRunningCoin = {};
 function animateCoin(link){
-    // const linkElement = d3.select(`#${linkId}`);
-    const attrWeightDiv = document.querySelector(".acc-weight");
+    const attrWeightDiv = document.querySelector("#acc-weights-div");
     const weightCoin = attrWeightDiv.querySelector("img");
     const parentDiv = document.querySelector("#graph-area");
     const relX = parentDiv.getBoundingClientRect().x;
@@ -572,8 +684,6 @@ function animateCoin(link){
     const endX = weightCoin.getBoundingClientRect().x - relX;
     const endY = weightCoin.getBoundingClientRect().y - relY;
 
-    // const dx = endX - startX;
-    // const dy = endY - startY;
     const dx = endX - startX;
     const dy = endY - startY;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -584,7 +694,6 @@ function animateCoin(link){
     let oscillationFrame = 0;
     const duration = 800;
     const amplitude = 40;
-    // animationRunningCoin[coin.attr("id")] = true;
     let randomOffset = amplitude / 4 + 3 * Math.random() * amplitude / 4;
     coin.transition()
         .duration(duration)
@@ -603,36 +712,10 @@ function animateCoin(link){
         })
         .on("end", function() {
             updateWeights();
-            // animationRunningCoin[coin.attr("id")] = false;
+            coin.remove();
         });
-    // const source = {x: startX, y: startY};
-    // const target = {x: endX, y: endY};
-    // coinOscillation(coin, source, target);
 }
-// function coinOscillation(coin, source, target){
-//     if (!animationRunningCoin[coin.attr("id")]){
-//         return;
-//     }
-//     const randomOffset = Math.random() * 50;
-//     const dx = target.x - source.x;
-//     const dy = target.y - source.y;
-//     const distance = Math.sqrt(dx * dx + dy * dy);
-//     const unitX = dx / distance;
-//     const unitY = dy / distance;
-//     coin.transition()
-//         .duration(100)
-//         .attrTween("transform", function(){
-//             return function(t){
-//                 const offset = randomOffset * Math.sin(t * Math.PI * 2);
-//                 const x = offset * unitX;
-//                 const y = offset * unitY;
-//                 return `translate(${x}, ${y})`;
-//             };
-//         })
-//         .on("end", function(){
-//             coinOscillation(coin, source, target);
-//         })
-// }
+
 function handleMouseOut(node) {
     this.style.opacity = "1";
     colorNodeMouseOut(node);
@@ -675,14 +758,40 @@ $(`#reset-graph-button`).click(() => {
     updateWeights();
 })
 
+function loadImages(){
+    let imageLoadPromises = [];
+    for (let i = 0; i < imagePaths.length; i++){
+        const imagePath = imagePaths[i];
+        const tmpImg = new Image();
+        tmpImg.src = imagePath;
+        imageLoadPromises.push(tmpImg.onload);
+        loadedImages[i] = tmpImg;
+    }
+    console.log("Code made it here");
+    console.log("After the nodes");
+    const tmpImg = new Image();
+    tmpImg.src = "/static/assets/images/standing-stick.png";
+    imageLoadPromises.push(tmpImg.onload);
+    console.log("Stick image loaded");
+    loadedImages["standing-stick"] = tmpImg;
+    const tmpCoin = new Image();
+    tmpCoin.src = "/static/assets/images/coin.png";
+    imageLoadPromises.push(tmpCoin.onload);
+    console.log("Coin image loaded");
+    loadedImages["coin"] = tmpCoin;
+    return Promise.all(imageLoadPromises);
+}
+
+
 // !!only for --dev!!
-// socket.emit("message_command", {
-//    "command": {
-//        "event": "start_game",
-//    },
-//    "room": self_room,
-//    "user_id": self_user
-//})
+socket.emit("message_command", {
+   "command": {
+       "event": "start_game",
+   },
+   "room": self_room,
+   "user_id": self_user
+})
+
 $(document).ready(function() {
     socket.on("command", function(data) {
         if (typeof(data.command === 'object')){
@@ -695,7 +804,7 @@ $(document).ready(function() {
                     return;
                 }
                 graphDrawn = true;
-    
+                
                 // Remove previous graph if it exists
                 // d3.select("#graph-area").select("#graph-container").remove();
                 const graphContainer = document.querySelector("#graph-container");
@@ -716,7 +825,7 @@ $(document).ready(function() {
                 max_weight = data.command.max_weight;
                 min_weight = data.command.min_weight;
                 acc_weights = 0;
-
+                
                 path = [];
                 pathLinks = []; 
                 linkIds = Array.from({ length: numNodes }, () => Array(numNodes).fill(0));
@@ -738,12 +847,14 @@ $(document).ready(function() {
             }
         }
     });
-
-    socket.emit("message_command", {
-        "command": {
-            "event": "document_ready",
-        },
-        "room": self_room,
-        "user_id": self_user
-    })
+        
+    loadImages().then(() => {
+        socket.emit("message_command", {
+            "command": {
+                "event": "document_ready",
+            },
+            "room": self_room,
+            "user_id": self_user
+        })
+    });
 })
