@@ -1,5 +1,5 @@
 from itertools import permutations
-from bisect import bisect_left
+from bisect import bisect_left, bisect_right
 from collections import defaultdict
 import logging
 
@@ -287,11 +287,11 @@ class Sailsman(TaskBot):
             costs_indexed = [(i, costs[i]) for i in range(len(costs))] # should be simplified with enumerate
             costs_indexed.sort(key=lambda x: x[1])
             costs.sort()
-            index = bisect_left(costs, path_cost)
-            percentile = index / (len(costs) - 1)
-            best_path = (0,) + perms[costs_indexed[0][0]] + (0,) # get the index of the lowest cost and take its permutation. Add start and end node.
+            index = bisect_right(costs, path_cost)
+            percentile = (len(costs) - index) / (len(costs) - 1)
+            best_path = (0,) + perms[costs_indexed[-1][0]] + (0,) # get the index of the lowest cost and take its permutation. Add start and end node.
             
-            return percentile, best_path, costs[0], path_cost
+            return percentile, best_path, costs[-1], path_cost
         
         session = self.session_manager[room_id]
         user_ids = list(session.graph.keys())
