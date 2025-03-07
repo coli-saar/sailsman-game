@@ -496,10 +496,14 @@ function updateGraphColoring(){
         makeNodeGreen(node);
     });
     makeNodeNew(path[path.length - 1]);
+    if (path.length === numNodes){
+        makeStartNodeBlinking();
+    }else{
+        stopStartNodeBlinking();
+    }
 }
 function makeNodeNew(node){
     makeNodeGreen(node);
-    // const stickFigureId = `stick-figure-${node.id}`;
     let stickFigure = d3.select(`#stick-figure`);
     const nodeImage = d3.select(`#image-${node.id}`);
     const nodeImageWidth = parseFloat(nodeImage.attr("width"));
@@ -538,6 +542,70 @@ function makeNodeNew(node){
             .attr("transform", `scale(1, 1)`);
     }   
 }
+
+let nodeBlinking;
+let arrowBlinking;
+function makeStartNodeBlinking(){  
+    // console.log("start blinking");
+    makeNodeOrange(path[0]);
+    const currentlyBlinking = nodeBlinking || arrowBlinking;
+
+    nodeBlinking = true;
+    arrowBlinking = true;
+    if (!currentlyBlinking){
+        blinkingStep();
+    }
+}
+function blinkingStep(){
+    if (!nodeBlinking && !arrowBlinking){
+        return;
+    }
+
+    const startNode = path[0];
+    const nodeElement = d3.selectAll(`#rect-${startNode.id}`);
+    const arrowLabel = d3.selectAll("#start-arrow-label");
+    const arrow = d3.selectAll("#start-arrow");
+    nodeElement.interrupt().attr("opacity", 1);
+    arrowLabel.interrupt().attr("opacity", 1);
+    arrow.interrupt().attr("opacity", 1);
+
+    if (nodeBlinking){
+        nodeElement.transition()
+            .duration(1000)
+            .attr("opacity", nodeElement.attr("opacity") == 1 ? 0 : 1)
+            .on("end", function(){
+                nodeElement.attr("opacity", 1);
+            });
+    }
+    if (arrowBlinking){
+        arrow.transition()
+            .duration(1000)
+            .attr("opacity", arrow.attr("opacity") == 1 ? 0 : 1)
+            .on("end", function(){
+                arrow.attr("opacity", 1);
+            });
+        arrowLabel.transition()
+            .duration(1000)
+            .attr("opacity", arrowLabel.attr("opacity") == 1 ? 0 : 1)
+            .on("end", function(){
+                arrowLabel.attr("opacity", 1);
+                blinkingStep();
+            });
+    }
+}
+function stopStartNodeBlinking(){
+    if (!nodeBlinking && !arrowBlinking){
+        return;
+    }
+    nodeBlinking = false;
+    arrowBlinking = false;
+}
+function stopNodeBlinking(){
+    const startNode = path[0];
+    const nodeElement = d3.select(`#rect-${startNode.id}`);
+    nodeElement.interrupt().attr("opacity", 1);
+    nodeBlinking = false;
+}
 function makeNodeOld(node){
     return;
     // TODO: Remove Figure from node
@@ -553,6 +621,9 @@ function makeNodeGreen(node){
 function colorNodeHovering(node){
     const nodeElement = document.getElementById(`rect-${node.id}`);
     nodeElement.style.strokeWidth = "4";
+    if (node.id == path[0].id && path.length == numNodes){
+        stopNodeBlinking();
+    }
     makeNodeOrange(node);
 }
 function colorNodeMouseOut(node){
@@ -566,6 +637,9 @@ function resetNode(node){
         nodeElement.style.stroke = "black";
     }else{
         makeNodeGreen(node);
+        if (node.id == path[0].id && path.length == numNodes){
+            makeStartNodeBlinking();
+        }
     }
 }
 function colorLinkVisited(link){
