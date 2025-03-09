@@ -112,6 +112,7 @@ class Session:
         }
 
         self.tutorial_tracker = TutorialTracker()
+        self.tutorial_screen = {}
 
         self.user_ids = set()
 
@@ -206,6 +207,9 @@ class Sailsman(TaskBot):
     def warning_timer_half(self, room_id):
 
         current_session = self.session_manager[room_id]
+        if current_session.tutorial_screen:
+            return
+
         self.sio.emit(
             "text",
             {
@@ -219,6 +223,9 @@ class Sailsman(TaskBot):
         )
 
     def warning_timer_one_min(self, room_id):
+        this_session = self.session_manager[room_id]
+        if this_session.tutorial_screen:
+            return
 
         self.sio.emit(
             "text",
@@ -233,6 +240,10 @@ class Sailsman(TaskBot):
         )
 
     def episode_timeout(self, room_id):
+        this_session = self.session_manager[room_id]
+        if this_session.tutorial_screen:
+            return
+        
         self.sio.emit(
             "text",
             {
@@ -381,9 +392,12 @@ class Sailsman(TaskBot):
         return percentile_score, gold_path, gold_cost, path_cost
 
     def _start_new_episode(self, room_id):
-        print("Starting new episode")
+        logging.debug(f"Starting new episode")
         current_session = self.session_manager[room_id]
+
         current_session.next_episode()
+        current_session.tutorial_screen = {}
+
         if current_session.episode_counter >= 0:
             current_session.episode_timer = RoomTimer(
                 self.episode_timeout, room_id, current_session.time
@@ -657,8 +671,21 @@ class Sailsman(TaskBot):
                         self.episode_started_event.wait()
                     
                     self.create_graph_data(room_id, user_id)
-                    logging.debug(f"Sending draw graph to user {user_id}")
-                    logging.debug(f"Current self.user: {self.user}")
+                    logging.debug(f"Current tutorial screen: {this_session.tutorial_screen}")
+
+                    if this_session.tutorial_screen:
+                        logging.debug(f"showing end tutorial screen")
+                        self.sio.emit(
+                            "message_command",
+                            {
+                                "command": {"event": "show_end_tutorial_screen", "coins_collected": this_session.tutorial_screen["combined_paths_value"], "gold_coins_collected": this_session.tutorial_screen["gold_value"]},
+                                "room": room_id,
+                            }
+                        )
+                        return
+
+
+
                     self.sio.emit(
                         "message_command",
                         {
@@ -740,6 +767,11 @@ class Sailsman(TaskBot):
                         return
                     
                     if not this_session.tutorial_tracker.showed_tutorial_recap():
+                        logging.debug(f"showing end tutorial screen after submitting")
+                        this_session.tutorial_screen = {
+                            "combined_paths_value": combined_paths_value,
+                            "gold_value": gold_value
+                        }
                         self.sio.emit(
                             "message_command",
                             {

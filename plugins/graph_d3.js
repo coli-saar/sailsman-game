@@ -44,7 +44,7 @@ const loadedImages = {};
 
 
 function showEndTutorialScreen(coinsCollected, goldCoinsCollected) {
-    endTutorialScreen = true;
+    const graphArea = document.getElementById("graph-area");
     // Remove existing message if present
     const graphContainer = document.querySelector("#graph-container");
     if (graphContainer) {
@@ -64,9 +64,6 @@ function showEndTutorialScreen(coinsCollected, goldCoinsCollected) {
     textDiv.style.textAlign = "center";
     textDiv.style.fontWeight = "bold";
     textDiv.style.fontSize = "large";
-    // textDiv.style.color = "red";
-    textDiv.style.backgroundColor = "white";
-    textDiv.style.zIndex = "1000";
     textDiv.style.padding = "10px";
     textDiv.style.border = "2px solid lightgreen";
     if (coinsCollected == goldCoinsCollected){
@@ -82,26 +79,26 @@ function showEndTutorialScreen(coinsCollected, goldCoinsCollected) {
     const submitButtonMessage = document.createElement("div");
     submitButtonMessage.id = "submit-button-message";
     submitButtonMessage.style.position = "absolute";
-    submitButtonMessage.style.top = "calc(50% + 10px)";
+    submitButtonMessage.style.top = "75%";
     submitButtonMessage.style.left = "50%";
     submitButtonMessage.style.transform = "translate(-50%, 0)";
     submitButtonMessage.style.textAlign = "center";
     submitButtonMessage.style.fontWeight = "bold";
     submitButtonMessage.style.fontSize = "large";
     submitButtonMessage.style.color = "red";
-    submitButtonMessage.style.zIndex = "1000";
     submitButtonMessage.style.padding = "10px";
-    submitButtonMessage.style.marginTop = "40px";
     // submitButtonMessage.style.animation = "blink 1s infinite alternate";
     submitButtonMessage.innerHTML = `
     <span style="color: red;">Click the submit button again to continue to the next episode.</span>
     `;
-
+    
     graphArea.appendChild(textDiv); // Append to graph-area
     graphArea.appendChild(submitButtonMessage);
+    endTutorialScreen = true;
 }
 
 function hideEndTutorialScreen(){
+    console.log("hiding end tutorial screen. endTutorialScreen: ", endTutorialScreen);
     if (!endTutorialScreen){
         return;
     }
@@ -1001,6 +998,7 @@ $(document).ready(function() {
             }
             else if (data.command.event == "show_end_tutorial_screen"){
                 showEndTutorialScreen(data.command.coins_collected, data.command.gold_coins_collected);
+                console.log("show end tutorial screen: ", endTutorialScreen);
             }
         }
     });
