@@ -16,6 +16,60 @@ import threading
 
 from .config import *
 
+class TutorialTracker:
+    def __init__(self):
+        self._update_path_message_sent = defaultdict(lambda: False)
+        self._start_tutorial_message_sent = False
+        self._submittable_message_sent = False
+        self._perfect_submission_message_sent = False
+        self._deviated_finished_paths_message_sent = False
+        self._deviated_path_message_sent = defaultdict(lambda: False)
+        self._showed_tutorial_recap = False
+
+    def sent_update_path_message(self, user_id):
+        if self._update_path_message_sent[user_id]:
+            return True
+        self._update_path_message_sent[user_id] = True
+        return False
+    
+    def start_tutorial_message_sent(self):
+        if self._start_tutorial_message_sent:
+            return True
+        self._start_tutorial_message_sent = True
+        return False
+    
+    def submittable_message_sent(self):
+        if self._submittable_message_sent:
+            return True
+        self._submittable_message_sent = True
+        return False
+    
+    def perfect_submission_message_sent(self):
+        if self._perfect_submission_message_sent:
+            return True
+        self._perfect_submission_message_sent = True
+        return False
+    
+    def showed_tutorial_recap(self):
+        if self._showed_tutorial_recap:
+            return True
+        self._showed_tutorial_recap = True
+        return False
+    
+    def deviated_finished_paths_message_sent(self):
+        if self._deviated_finished_paths_message_sent:
+            return True
+        self._deviated_finished_paths_message_sent = True
+        return False
+        
+    def deviated_path_message_sent(self, user_id):
+        if self._deviated_path_message_sent[user_id]:
+            return True
+        self._deviated_path_message_sent[user_id] = True
+        return False
+
+    
+
 class RoomTimer:
     def __init__(self, function, room_id, TIMER):
         self.function = function
@@ -49,6 +103,18 @@ class Session:
         self.path = {}
         self.graph_created = defaultdict(lambda: False)
 
+        self._node_str = {
+            0: "living room",
+            1: "kitchen",
+            2: "garden",
+            3: "play room",
+            4: "attic",
+        }
+
+        self.tutorial_tracker = TutorialTracker()
+
+        self.user_ids = set()
+
         # Change these numbers to adjust the episodes to play. Make sure that len(self.graph_sizes) >= self.number_of_episodes and len(self.max_weights) >= self.number_of_episodes, at best they are equal.
         self.episode_counter = 2  # number of rounds to play
         self.graph_sizes = [5, 4] # counted right to left
@@ -75,6 +141,13 @@ class Session:
         self.episode_counter -= 1
         self.cancel_timers()
         self.graph_created = defaultdict(lambda: False)
+
+    def get_node_str(self, node_id):
+        return self._node_str[node_id]
+    
+    def other_user(self, user_id):
+        return list(self.user_ids - {user_id})[0]
+    
     @property
     def graph_size(self):
         return self.graph_sizes[self.episode_counter]
@@ -323,6 +396,7 @@ class Sailsman(TaskBot):
                 self.warning_timer_one_min, room_id, current_session.time - 1
             )
             message = f"This is episode {len(current_session.graph_sizes) - current_session.episode_counter} out of {len(current_session.graph_sizes)} episodes for you to complete.\n You have {current_session.time} minutes to complete this episode."
+                
             self.sio.emit(
                     "text",
                     {
@@ -334,6 +408,16 @@ class Sailsman(TaskBot):
                     },
                 )
             
+            if not current_session.tutorial_tracker.start_tutorial_message_sent():
+                self.sio.emit(
+                    "text",
+                    {
+                        "message": WELCOME.format(message="This is a tutorial episode, which will help you understand the mechanics of the game. You will get some additional information.", color=SUCCESS_COLOR),
+                        "room": room_id,
+                        "html": True
+                    }
+                )
+
             self.sio.emit(
                 "message_command",
                 {
@@ -429,9 +513,9 @@ class Sailsman(TaskBot):
             sleep(0.5)
             lines = ["Welcome to the game!",
                 "----------------------",
-                "You and your partner are each seeing a graph representation of the same house 🏠. The **circles** represent the rooms, and the **lines** represent the hallways between them, containing 🪙 **coins** 🪙 (the numbers on the lines). ",
+                "You and your partner are each seeing a graph representation of the same house 🏠 with the same rooms that you can see to the right. All rooms are connected by **lines** which represent the hallways between them. While the house is the same, the amount of🪙 **coins** 🪙 in each hallway are different for you and your partner.",
                 "**Task:** *Travel through the rooms in the same order* as your partner, and visit each room *only **once***, while getting *as many total coins as possible*. Use the chat to agree on a path. Please only communicate in English.",
-                "**Score:** Your reward will be an *even split of all the coins you and your partner have collected together* on the path you chose, so try to get as many as possible.",
+                "**Score:** Your reward will be the *sum of all the coins you and your partner have collected together* on the path you chose, so try to get as many as possible.",
                 "**Mechanics:** To select a path, **click** on the room you wish to visit. To go back, click on the room you visited previously. You may revise your path during the round, but your final path must be **identical**. To end the round, either you or your partner should click the blue **SUBMIT** button.",
                 "Wait for the first episode to start."]
 
@@ -479,6 +563,7 @@ class Sailsman(TaskBot):
             )
 
             this_session = self.session_manager[room_id]
+
             if isinstance(data["command"], dict):
                 if data["command"]["event"] == "save_graph":
                     this_session.graph[user_id] = data["command"]["graph"]
@@ -487,11 +572,86 @@ class Sailsman(TaskBot):
 
                 if data["command"]["event"] == "update_path":
                     path = [node["id"] for node in data["command"]["path"]]
+                    try:
+                        path_length_change = len(path) - len(this_session.path[user_id])
+                    except:
+                        path_length_change = 0
                     this_session.path[user_id] = path
+
+                    if len(this_session.user_ids) == 2 and len(path) > 1: # For dev mode only. Otherwise, user ids should already be set by the document_ready event.
+                        if not this_session.tutorial_tracker.sent_update_path_message(user_id):
+                            start_node = this_session.path[user_id][-2]
+                            end_node = this_session.path[user_id][-1]
+                            start_node_str = this_session.get_node_str(start_node)
+                            end_node_str = this_session.get_node_str(end_node)
+                            coins_collected = this_session.graph[user_id][start_node][end_node]
+                            other_user_coins = this_session.graph[this_session.other_user(user_id)][start_node][end_node]
+
+                            other_user_id = this_session.other_user(user_id)
+                            self.sio.emit(
+                                "text",
+                                {
+                                    "message": WELCOME.format(
+                                        message=f"Your partner has updated their path and went from the {start_node_str} to the {end_node_str}. They collected {coins_collected} coins. Together you get {coins_collected + other_user_coins} coins on that path.", color=SUCCESS_COLOR
+                                    ),
+                                    "room": room_id,
+                                    "receiver_id": other_user_id,
+                                    "html": True
+                                },
+                            )
+
+                        paths = list(this_session.path.values())
+                        logging.debug(f"paths: {paths}")
+                        if len(paths[0]) == this_session.graph_size + 1 and len(paths[0]) == this_session.graph_size + 1:
+                            if paths[0] == paths[1]:
+                                if not this_session.tutorial_tracker.submittable_message_sent():
+                                    self.sio.emit(
+                                        "text",
+                                        {
+                                            "message": WELCOME.format(message="You both completed your paths and they are identical! You can now submit your path.", color=SUCCESS_COLOR),
+                                            "room": room_id,
+                                            "html": True
+                                        },
+                                    )
+                            else:
+                                if not this_session.tutorial_tracker.deviated_finished_paths_message_sent():
+                                    self.sio.emit(
+                                        "text",
+                                        {
+                                            "message": WELCOME.format(message="You both completed a path, but they are not identical. Make sure that you chose the same path before submitting.", color=SUCCESS_COLOR),
+                                            "room": room_id,
+                                            "html": True
+                                        },
+                                    )
+
+                        longest_shared_prefix_length = 0
+                        for i in range(min(len(paths[0]), len(paths[1]))):
+                            if paths[0][i] == paths[1][i]:
+                                longest_shared_prefix_length += 1
+                            else:
+                                break
+
+                        user_path_diff = len(this_session.path[user_id]) - longest_shared_prefix_length
+                        other_user_path_diff = len(this_session.path[this_session.other_user(user_id)]) - longest_shared_prefix_length
+
+                        if user_path_diff == 1 and other_user_path_diff > 0 and path_length_change == 1:
+                            if not this_session.tutorial_tracker.deviated_path_message_sent(user_id):
+                                self.sio.emit(
+                                    "text",
+                                    {
+                                        "message": WELCOME.format(message="Your path deviated from your partner's path. Make sure to choose the same path.", color=SUCCESS_COLOR),
+                                        "room": room_id,
+                                        "html": True,
+                                        "receiver_id": user_id
+                                    },
+                                )
+
                     logging.debug(f"current path of user {user_id} is {this_session.path[user_id]}")
                     self.log_event("update_path", {"path": this_session.path[user_id], "user_id": user_id}, room_id)
                 
                 if data["command"]["event"] == "document_ready":
+                    this_session.user_ids.add(user_id)
+
                     if not self.started:
                         # wait until episode has started
                         self.episode_started_event.wait()
@@ -566,6 +726,19 @@ class Sailsman(TaskBot):
                         return
                     
                     percentile_score, gold_path, gold_value, combined_paths_value = self.calculate_score(room_id)
+
+                    if not this_session.tutorial_tracker.perfect_submission_message_sent():
+                        if percentile_score != 100:
+                            self.sio.emit(
+                                "text",
+                                {
+                                    "message": WELCOME.format(message="Your path is not the best possible. Try to get a better one!", color=SUCCESS_COLOR),
+                                    "room": room_id,
+                                    "html": True
+                                },
+                            )
+                        return
+
 
                     #Log Scores
                     log_dict = {
