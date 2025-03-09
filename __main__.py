@@ -738,6 +738,16 @@ class Sailsman(TaskBot):
                                 },
                             )
                         return
+                    
+                    if not this_session.tutorial_tracker.showed_tutorial_recap():
+                        self.sio.emit(
+                            "message_command",
+                            {
+                                "command": {"event": "show_end_tutorial_screen", "coins_collected": combined_paths_value, "gold_coins_collected": gold_value},
+                                "room": room_id,
+                            }
+                        )
+                        return
 
 
                     #Log Scores

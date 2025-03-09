@@ -24,6 +24,7 @@ const graphArea = document.getElementById("graph-area");
 // const nodeLabels = [['L', 'Living Room'], ['K', 'Kitchen'], ['B', 'Bathroom'], ['F', 'Front Porch'], ['A', 'Attic'], ['O', 'Office']];
 
 let graphDrawn = false;
+let endTutorialScreen = false;
 
 let animationData = {
     running: false,
@@ -42,11 +43,83 @@ const loadedImages = {};
 
 
 
+function showEndTutorialScreen(coinsCollected, goldCoinsCollected) {
+    endTutorialScreen = true;
+    // Remove existing message if present
+    const graphContainer = document.querySelector("#graph-container");
+    if (graphContainer) {
+        graphContainer.remove();
+    }
+    const resetGraphButton = document.getElementById("reset-graph-button");
+    resetGraphButton.style.display = "none";
+    const accWeightsDiv = document.querySelector("#acc-weights-div");
+    accWeightsDiv.innerHTML = "";
+
+    const textDiv = document.createElement("div");
+    textDiv.id = "end-tutorial-screen";
+    textDiv.style.position = "absolute";
+    textDiv.style.top = "50%";
+    textDiv.style.left = "50%";
+    textDiv.style.transform = "translate(-50%, -50%)";
+    textDiv.style.textAlign = "center";
+    textDiv.style.fontWeight = "bold";
+    textDiv.style.fontSize = "large";
+    // textDiv.style.color = "red";
+    textDiv.style.backgroundColor = "white";
+    textDiv.style.zIndex = "1000";
+    textDiv.style.padding = "10px";
+    textDiv.style.border = "2px solid lightgreen";
+    if (coinsCollected == goldCoinsCollected){
+        textDiv.innerHTML = `
+        <span style="color: black;">You completed the tutorial episode with ${coinsCollected} \u{1FA99} collected. This is the most you could have gotten. Well done!</span>
+        `;
+    } else {
+        textDiv.innerHTML = `
+        <span style="color: black;">You completed the tutorial episode with ${coinsCollected} \u{1FA99} collected.
+        You could have gotten ${goldCoinsCollected} \u{1FA99}. Try to get the most coins possible next time!</span>
+        `;
+    }
+    const submitButtonMessage = document.createElement("div");
+    submitButtonMessage.id = "submit-button-message";
+    submitButtonMessage.style.position = "absolute";
+    submitButtonMessage.style.top = "calc(50% + 10px)";
+    submitButtonMessage.style.left = "50%";
+    submitButtonMessage.style.transform = "translate(-50%, 0)";
+    submitButtonMessage.style.textAlign = "center";
+    submitButtonMessage.style.fontWeight = "bold";
+    submitButtonMessage.style.fontSize = "large";
+    submitButtonMessage.style.color = "red";
+    submitButtonMessage.style.zIndex = "1000";
+    submitButtonMessage.style.padding = "10px";
+    submitButtonMessage.style.marginTop = "40px";
+    // submitButtonMessage.style.animation = "blink 1s infinite alternate";
+    submitButtonMessage.innerHTML = `
+    <span style="color: red;">Click the submit button again to continue to the next episode.</span>
+    `;
+
+    graphArea.appendChild(textDiv); // Append to graph-area
+    graphArea.appendChild(submitButtonMessage);
+}
+
+function hideEndTutorialScreen(){
+    if (!endTutorialScreen){
+        return;
+    }
+    const textDiv = document.getElementById("end-tutorial-screen");
+    textDiv.remove();
+    const submitButtonMessage = document.getElementById("submit-button-message");
+    submitButtonMessage.remove();
+    const resetGraphButton = document.querySelector("#reset-graph-button");
+    resetGraphButton.style.display = "";
+    endTutorialScreen = false;
+}
+
+
 function drawGraph(graph) {
     const svg = d3.select("#graph-area")
         .select("svg")
         .empty()
-        ? d3.select("#graph-area").append("svg")
+        ? d3.select("#graph-area").append("svg").attr("id", "graph-svg")
         : d3.select("#graph-area svg");
 
     const container = svg.append("g").attr("id", "graph-container");
@@ -251,6 +324,9 @@ function drawGraph(graph) {
 }
 
 function resizeGraph() {
+    if (endTutorialScreen){
+        return;
+    }
     const svg = d3.select("#graph-area svg");
     const boundingBox = svg.node().getBoundingClientRect();
     const centerX = boundingBox.width / 2;
@@ -874,6 +950,7 @@ $(document).ready(function() {
         if (typeof(data.command === 'object')){
             if (data.command.event == "draw_graph"){
                 console.log("draw graph,GraphDrawn status: ", graphDrawn);
+                hideEndTutorialScreen();
                 if (graphDrawn){
                     return;
                 }
@@ -921,6 +998,9 @@ $(document).ready(function() {
                     "room": self_room,
                     "user_id": self_user
                 })
+            }
+            else if (data.command.event == "show_end_tutorial_screen"){
+                showEndTutorialScreen(data.command.coins_collected, data.command.gold_coins_collected);
             }
         }
     });
