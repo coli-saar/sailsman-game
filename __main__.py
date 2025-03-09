@@ -602,7 +602,7 @@ class Sailsman(TaskBot):
 
                         paths = list(this_session.path.values())
                         logging.debug(f"paths: {paths}")
-                        if len(paths[0]) == this_session.graph_size + 1 and len(paths[0]) == this_session.graph_size + 1:
+                        if len(paths[0]) == this_session.graph_size + 1 and len(paths[1]) == this_session.graph_size + 1:
                             if paths[0] == paths[1]:
                                 if not this_session.tutorial_tracker.submittable_message_sent():
                                     self.sio.emit(
