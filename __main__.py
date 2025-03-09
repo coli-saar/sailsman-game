@@ -267,7 +267,7 @@ class Sailsman(TaskBot):
     def send_prolific_code(self, room_id):
         
         # the messages including the unique ID to be copied to the survey
-        message = "Congratulations! You've completed the study. Here is your completion code: CETJD9OZ. Please paste it into Prolific in order to be eligible for compensation."
+        message = "Congratulations! You've finished the game. In order to get your Prolific completion code, please complete this short survey: https://forms.gle/x6s8w2hPu2FZbCsz6."
         self.sio.emit(
             "text",
             {
@@ -527,11 +527,10 @@ class Sailsman(TaskBot):
             sleep(0.5)
             lines = ["Welcome to the game!",
                 "----------------------",
-                "You and your partner are each seeing a graph representation of the same house 🏠 with the same rooms that you can see to the right. All rooms are connected by **lines** which represent the hallways between them. While the house is the same, the amount of🪙 **coins** 🪙 in each hallway are different for you and your partner.",
-                "**Task:** *Travel through the rooms in the same order* as your partner, and visit each room *only **once***, while getting *as many total coins as possible*. Use the chat to agree on a path. Please only communicate in English.",
-                "**Score:** Your reward will be the *sum of all the coins you and your partner have collected together* on the path you chose, so try to get as many as possible.",
-                "**Mechanics:** To select a path, **click** on the room you wish to visit. To go back, click on the room you visited previously. You may revise your path during the round, but your final path must be **identical**. To end the round, either you or your partner should click the blue **SUBMIT** button.",
-                "Wait for the first episode to start."]
+                "You and your partner are each seeing the same house 🏠 with identical rooms. Each room is connected by a hallway containing a certain amount of 🪙 coins 🪙. While the house is the same, the amount of🪙 coins 🪙 in each hallway are different for you and your partner.",
+                "Task: Travel through the rooms in the same order as your partner, and visit each room only once, while getting as many total coins as possible. Use the chat to agree on a path. Please only communicate in English.",
+                "Score: Your reward will be the sum of all the coins you and your partner have collected individually on the path you chose, so try to get as many as possible.",
+                "Mechanics: To select a path, click on the room you wish to visit. To go back, click on the room you visited previously. You may revise your path during the round, but your final path must be identical. To end the round, either you or your partner should click the blue SUBMIT button."]
 
             for line in lines:
             
