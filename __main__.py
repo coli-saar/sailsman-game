@@ -443,7 +443,7 @@ class Sailsman(TaskBot):
             self.send_prolific_code(room_id)
 
             self.close_room(room_id)
-        logging.debug(f"user variable: {self.user}")
+
         self.started = True
         self.episode_started_event.set()  # Signal that the episode has started
 
@@ -615,7 +615,7 @@ class Sailsman(TaskBot):
                             )
 
                         paths = list(this_session.path.values())
-                        logging.debug(f"paths: {paths}")
+
                         if len(paths[0]) == this_session.graph_size + 1 and len(paths[1]) == this_session.graph_size + 1:
                             if paths[0] == paths[1]:
                                 if not this_session.tutorial_tracker.submittable_message_sent():
@@ -671,10 +671,8 @@ class Sailsman(TaskBot):
                         self.episode_started_event.wait()
                     
                     self.create_graph_data(room_id, user_id)
-                    logging.debug(f"Current tutorial screen: {this_session.tutorial_screen}")
 
                     if this_session.tutorial_screen:
-                        logging.debug(f"showing end tutorial screen")
                         self.sio.emit(
                             "message_command",
                             {
@@ -755,7 +753,7 @@ class Sailsman(TaskBot):
                     percentile_score, gold_path, gold_value, combined_paths_value = self.calculate_score(room_id)
 
                     if not this_session.tutorial_tracker.perfect_submission_message_sent():
-                        if percentile_score != 100:
+                        if percentile_score != 0:
                             self.sio.emit(
                                 "text",
                                 {
@@ -764,10 +762,9 @@ class Sailsman(TaskBot):
                                     "html": True
                                 },
                             )
-                        return
+                            return
                     
                     if not this_session.tutorial_tracker.showed_tutorial_recap():
-                        logging.debug(f"showing end tutorial screen after submitting")
                         this_session.tutorial_screen = {
                             "combined_paths_value": combined_paths_value,
                             "gold_value": gold_value
