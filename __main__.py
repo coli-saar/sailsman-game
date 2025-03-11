@@ -192,14 +192,37 @@ class Sailsman(TaskBot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.episode_started_event = threading.Event()  # Create an event to signal episode start
+        self.users_joined_event = threading.Event()
         self.session_manager = SessionManager(Session)
         self.data_collection = "AMT"
         self.started = False
-
+        self.user_joined = 0
     def on_task_room_creation(self, data): # function doesn't get called in --dev mode
         room_id = data["room"]
         logging.debug(f"Room {room_id} was created")
 
+        self.users_joined_event.wait()
+        lines = ["Welcome to the game!",
+                "----------------------",
+                "You and your partner are each seeing the same house 🏠 with identical rooms. Each room is connected by a hallway containing a certain amount of 🪙 coins 🪙. While the house is the same, the amount of🪙 coins 🪙 in each hallway are different for you and your partner.",
+                "Task: Travel through the rooms in the same order as your partner, and visit each room only once, while getting as many total coins as possible. Use the chat to agree on a path. Please only communicate in English.",
+                "Score: Your reward will be the sum of all the coins you and your partner have collected individually on the path you chose, so try to get as many as possible.",
+                "Mechanics: To select a path, click on the room you wish to visit. To go back, click on the room you visited previously. You may revise your path during the round, but your final path must be identical. To end the round, either you or your partner should click the blue SUBMIT button."]
+
+        for line in lines:
+        
+            self.sio.emit(
+                "text",
+                {
+                    "message": WELCOME.format(
+                        message=line, color=STANDARD_COLOR
+                    ),
+                    "room": room_id,
+                    "html": True
+                },
+            )
+
+        # sleep(8)
         self._start_new_episode(room_id)
         self.move_divider(room_id, chat_area=25, task_area=75) # resize chat area
 
@@ -444,6 +467,7 @@ class Sailsman(TaskBot):
 
             self.close_room(room_id)
 
+        # sleep(0.5)
         self.started = True
         self.episode_started_event.set()  # Signal that the episode has started
 
@@ -524,26 +548,12 @@ class Sailsman(TaskBot):
             else:
                 logging.error("No room_id provided in joined_room data")
 
-            sleep(0.5)
-            lines = ["Welcome to the game!",
-                "----------------------",
-                "You and your partner are each seeing the same house 🏠 with identical rooms. Each room is connected by a hallway containing a certain amount of 🪙 coins 🪙. While the house is the same, the amount of🪙 coins 🪙 in each hallway are different for you and your partner.",
-                "Task: Travel through the rooms in the same order as your partner, and visit each room only once, while getting as many total coins as possible. Use the chat to agree on a path. Please only communicate in English.",
-                "Score: Your reward will be the sum of all the coins you and your partner have collected individually on the path you chose, so try to get as many as possible.",
-                "Mechanics: To select a path, click on the room you wish to visit. To go back, click on the room you visited previously. You may revise your path during the round, but your final path must be identical. To end the round, either you or your partner should click the blue SUBMIT button."]
-
-            for line in lines:
+            current_session = self.session_manager[room_id]
+            self.user_joined += 1
             
-                self.sio.emit(
-                    "text",
-                    {
-                        "message": WELCOME.format(
-                            message=line, color=STANDARD_COLOR
-                        ),
-                        "room": room_id,
-                        "html": True
-                    },
-                )
+            if self.user_joined == 2:
+                sleep(0.5)
+                self.users_joined_event.set()
  
         @self.sio.event
         def text_message(data):

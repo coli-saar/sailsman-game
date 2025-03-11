@@ -934,13 +934,13 @@ function loadImages(){
 
 
 // !!only for --dev!!
-socket.emit("message_command", {
-   "command": {
-       "event": "start_game",
-   },
-   "room": self_room,
-   "user_id": self_user
-})
+// socket.emit("message_command", {
+//    "command": {
+//        "event": "start_game",
+//    },
+//    "room": self_room,
+//    "user_id": self_user
+// })
 
 $(document).ready(function() {
     socket.on("command", function(data) {
