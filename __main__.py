@@ -221,10 +221,10 @@ class Sailsman(TaskBot):
                     "html": True
                 },
             )
-
-        # sleep(8)
-        self._start_new_episode(room_id)
         self.move_divider(room_id, chat_area=25, task_area=75) # resize chat area
+
+        sleep(0.5)
+        self._start_new_episode(room_id)
 
 
     def warning_timer_half(self, room_id):
