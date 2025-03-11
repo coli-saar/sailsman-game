@@ -168,6 +168,14 @@ class Session:
         return list(self.user_ids - {user_id})[0]
     
     @property
+    def is_first_episode(self) -> bool:
+        return self.episode_counter == len(self.graph_sizes) - 1
+    
+    @property
+    def is_last_episode(self) -> bool:
+        return self.episode_counter == 0
+    
+    @property
     def graph_size(self):
         return self.graph_sizes[self.episode_counter]
 
@@ -285,12 +293,17 @@ class Sailsman(TaskBot):
         if this_session.tutorial_screen:
             return
         
+        if this_session.is_last_episode:
+            self.send_timeout_code(room_id)
+            self.close_room(room_id)
+            return
+        
         self.sio.emit(
             "text",
             {
                 "message": COLOR_MESSAGE.format(
             color=WARNING_COLOR,
-            message="Ooops the time for this episode went out. ",
+            message="Ooops the time for this episode went out.",
             ),
                 "room": room_id,
                 "html": True
@@ -309,6 +322,20 @@ class Sailsman(TaskBot):
         
         # the messages including the unique ID to be copied to the survey
         message = "Congratulations! You've finished the game. In order to get your Prolific completion code, please complete this short survey: https://forms.gle/x6s8w2hPu2FZbCsz6."
+        self.sio.emit(
+            "text",
+            {
+                "message": COLOR_MESSAGE.format(
+            color=WARNING_COLOR,
+            message=message
+            ),
+                "room": room_id,
+                "html": True
+            },
+        )
+
+    def send_timeout_code(self, room_id):
+        message = "Ooops the time for this episode went out. You've finished the game. Please copy the following Prolific completion code before you close this window and go back to Prolific: C1BY72SQ"
         self.sio.emit(
             "text",
             {
