@@ -26,47 +26,63 @@ class TutorialTracker:
         self._deviated_path_message_sent = defaultdict(lambda: False)
         self._showed_tutorial_recap = False
 
-    def sent_update_path_message(self, user_id):
+        self.run_tutorial = True
+
+    def send_update_path_message(self, user_id):
+        if not self.run_tutorial:
+            return False
         if self._update_path_message_sent[user_id]:
-            return True
+            return False
         self._update_path_message_sent[user_id] = True
-        return False
+        return True
     
-    def start_tutorial_message_sent(self):
+    def send_start_tutorial_message(self):
+        if not self.run_tutorial:
+            return False
         if self._start_tutorial_message_sent:
-            return True
+            return False
         self._start_tutorial_message_sent = True
         return False
     
-    def submittable_message_sent(self):
+    def send_submittable_message(self):
+        if not self.run_tutorial:
+            return False
         if self._submittable_message_sent:
-            return True
+            return False
         self._submittable_message_sent = True
-        return False
+        return True
     
-    def perfect_submission_message_sent(self):
+    def send_perfect_submission_message(self):
+        if not self.run_tutorial:
+            return False
         if self._perfect_submission_message_sent:
-            return True
+            return False
         self._perfect_submission_message_sent = True
-        return False
+        return True
     
-    def showed_tutorial_recap(self):
+    def send_tutorial_recap(self):
+        if not self.run_tutorial:
+            return False
         if self._showed_tutorial_recap:
-            return True
+            return False
         self._showed_tutorial_recap = True
-        return False
+        return True
     
-    def deviated_finished_paths_message_sent(self):
+    def send_deviated_finished_paths_message(self):
+        if not self.run_tutorial:
+            return False
         if self._deviated_finished_paths_message_sent:
-            return True
+            return False
         self._deviated_finished_paths_message_sent = True
-        return False
+        return True
         
-    def deviated_path_message_sent(self, user_id):
+    def send_deviated_path_message(self, user_id):
+        if not self.run_tutorial:
+            return False
         if self._deviated_path_message_sent[user_id]:
-            return True
+            return False
         self._deviated_path_message_sent[user_id] = True
-        return False
+        return True
 
     
 
@@ -139,6 +155,8 @@ class Session:
             self.one_minute_timer.cancel()
 
     def next_episode(self):
+        if self.episode_counter < len(self.graph_sizes): # There has already been an episode before.
+            self.tutorial_tracker.run_tutorial = False
         self.episode_counter -= 1
         self.cancel_timers()
         self.graph_created = defaultdict(lambda: False)
@@ -445,7 +463,7 @@ class Sailsman(TaskBot):
                     },
                 )
             
-            if not current_session.tutorial_tracker.start_tutorial_message_sent():
+            if current_session.tutorial_tracker.send_start_tutorial_message():
                 self.sio.emit(
                     "text",
                     {
@@ -602,7 +620,7 @@ class Sailsman(TaskBot):
                     this_session.path[user_id] = path
 
                     if len(this_session.user_ids) == 2 and len(path) > 1: # For dev mode only. Otherwise, user ids should already be set by the document_ready event.
-                        if not this_session.tutorial_tracker.sent_update_path_message(user_id):
+                        if this_session.tutorial_tracker.send_update_path_message(user_id):
                             start_node = this_session.path[user_id][-2]
                             end_node = this_session.path[user_id][-1]
                             start_node_str = this_session.get_node_str(start_node)
@@ -627,7 +645,7 @@ class Sailsman(TaskBot):
 
                         if len(paths[0]) == this_session.graph_size + 1 and len(paths[1]) == this_session.graph_size + 1:
                             if paths[0] == paths[1]:
-                                if not this_session.tutorial_tracker.submittable_message_sent():
+                                if this_session.tutorial_tracker.send_submittable_message():
                                     self.sio.emit(
                                         "text",
                                         {
@@ -637,7 +655,7 @@ class Sailsman(TaskBot):
                                         },
                                     )
                             else:
-                                if not this_session.tutorial_tracker.deviated_finished_paths_message_sent():
+                                if this_session.tutorial_tracker.send_deviated_finished_paths_message():
                                     self.sio.emit(
                                         "text",
                                         {
@@ -658,7 +676,7 @@ class Sailsman(TaskBot):
                         other_user_path_diff = len(this_session.path[this_session.other_user(user_id)]) - longest_shared_prefix_length
 
                         if user_path_diff == 1 and other_user_path_diff > 0 and path_length_change == 1:
-                            if not this_session.tutorial_tracker.deviated_path_message_sent(user_id):
+                            if this_session.tutorial_tracker.send_deviated_path_message(user_id):
                                 self.sio.emit(
                                     "text",
                                     {
@@ -761,7 +779,7 @@ class Sailsman(TaskBot):
                     
                     percentile_score, gold_path, gold_value, combined_paths_value = self.calculate_score(room_id)
 
-                    if not this_session.tutorial_tracker.perfect_submission_message_sent():
+                    if this_session.tutorial_tracker.send_perfect_submission_message():
                         if percentile_score != 0:
                             self.sio.emit(
                                 "text",
@@ -773,7 +791,7 @@ class Sailsman(TaskBot):
                             )
                             return
                     
-                    if not this_session.tutorial_tracker.showed_tutorial_recap():
+                    if this_session.tutorial_tracker.send_tutorial_recap():
                         this_session.tutorial_screen = {
                             "combined_paths_value": combined_paths_value,
                             "gold_value": gold_value
