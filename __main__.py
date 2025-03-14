@@ -42,7 +42,7 @@ class TutorialTracker:
         if self._start_tutorial_message_sent:
             return False
         self._start_tutorial_message_sent = True
-        return False
+        return True
     
     def send_submittable_message(self):
         if not self.run_tutorial:
