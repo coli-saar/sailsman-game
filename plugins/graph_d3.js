@@ -98,7 +98,6 @@ function showEndTutorialScreen(coinsCollected, goldCoinsCollected) {
 }
 
 function hideEndTutorialScreen(){
-    console.log("hiding end tutorial screen. endTutorialScreen: ", endTutorialScreen);
     if (!endTutorialScreen){
         return;
     }
@@ -562,7 +561,6 @@ function updateGraphColoring(){
         if (index < path.length - 1) {
             const nextNode = path[index + 1];
             const linkId = linkIds[node.id][nextNode.id];
-            // console.log(`link from path: ${linkId}`);
             const linkElement = d3.select(`#${linkId}`);
             colorLinkVisited(linkElement);
         }
@@ -595,7 +593,8 @@ function makeNodeNew(node){
         .attr("href", loadedImages["standing-stick"].src);
         originalStickFigureWidth = loadedImages["standing-stick"].naturalWidth;
         originalStickFigureHeight = loadedImages["standing-stick"].naturalHeight;
-    }else{
+    }
+    else{
         originalStickFigureWidth = stickFigure.attr("width");
         originalStickFigureHeight = stickFigure.attr("height");
     }
@@ -619,7 +618,6 @@ function makeNodeNew(node){
 let nodeBlinking;
 let arrowBlinking;
 function makeStartNodeBlinking(){  
-    // console.log("start blinking");
     makeNodeOrange(path[0]);
     const currentlyBlinking = nodeBlinking || arrowBlinking;
 
@@ -903,8 +901,6 @@ $(`#submit_button`).click(() => {
 })
 
 $(`#reset-graph-button`).click(() => {
-    // let updated_path = path.length > 1;
-    console.log("reset graph");
     path = [path[0]];
     pathLinks = [];
 
@@ -917,18 +913,39 @@ function loadImages(){
     for (let i = 0; i < imagePaths.length; i++){
         const imagePath = imagePaths[i];
         const tmpImg = new Image();
-        tmpImg.src = imagePath;
-        imageLoadPromises.push(tmpImg.onload);
+        imageLoadPromises.push(new Promise((resolve) => {
+            tmpImg.onload = () => resolve();
+            tmpImg.onerror = () => {
+                console.error(`Failed to load image: ${imagePath}`);
+                resolve(); // Resolve anyway to not block other images
+            };
+            tmpImg.src = imagePath;
+        }));
         loadedImages[i] = tmpImg;
     }
+    
     const tmpImg = new Image();
-    tmpImg.src = "/static/assets/images/standing-stick.png";
-    imageLoadPromises.push(tmpImg.onload);
+    imageLoadPromises.push(new Promise((resolve) => {
+        tmpImg.onload = () => resolve();
+        tmpImg.onerror = () => {
+            console.error("Failed to load standing-stick image");
+            resolve();
+        };
+        tmpImg.src = "/static/assets/images/standing-stick.png";
+    }));
     loadedImages["standing-stick"] = tmpImg;
+    
     const tmpCoin = new Image();
-    tmpCoin.src = "/static/assets/images/coin.png";
-    imageLoadPromises.push(tmpCoin.onload);
+    imageLoadPromises.push(new Promise((resolve) => {
+        tmpCoin.onload = () => resolve();
+        tmpCoin.onerror = () => {
+            console.error("Failed to load coin image");
+            resolve();
+        };
+        tmpCoin.src = "/static/assets/images/coin.png";
+    }));
     loadedImages["coin"] = tmpCoin;
+    
     return Promise.all(imageLoadPromises);
 }
 
@@ -946,7 +963,6 @@ $(document).ready(function() {
     socket.on("command", function(data) {
         if (typeof(data.command === 'object')){
             if (data.command.event == "draw_graph"){
-                console.log("draw graph,GraphDrawn status: ", graphDrawn);
                 hideEndTutorialScreen();
                 if (graphDrawn){
                     return;
@@ -986,7 +1002,6 @@ $(document).ready(function() {
             }
             else if (data.command.event == "new_episode"){
                 console.log("New episode");
-                console.log("GraphDrawn status: ", graphDrawn);
                 graphDrawn = false;
                 socket.emit("message_command", {
                     "command": {
@@ -998,12 +1013,12 @@ $(document).ready(function() {
             }
             else if (data.command.event == "show_end_tutorial_screen"){
                 showEndTutorialScreen(data.command.coins_collected, data.command.gold_coins_collected);
-                console.log("show end tutorial screen: ", endTutorialScreen);
             }
         }
     });
         
     loadImages().then(() => {
+        console.log("images loaded");
         socket.emit("message_command", {
             "command": {
                 "event": "document_ready",
