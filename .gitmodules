@@ -1,0 +1,3 @@
+[submodule "tsp-game-agent"]
+	path = tsp-game-agent
+	url = git@github.com:coli-saar/tsp-game-agent.git

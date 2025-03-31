@@ -17,10 +17,10 @@ $ cd slurk-bots
 $ conda activate {conda-environment}
 $ python start_bot_podman.py sailsman --users 2 --slurk-api-token $SLURK_API_TOKEN --tokens --waiting-room-layout-dict waiting_room_layout.json
 ```
-token amazon turk
-which logs
 
-look into how to host a server:
- - make front-end with instrucitons and button -> clicke: generates link to waiting room, use stack
- - How can the slurk/server be run and accessed and ported to
- - use potsdam as refernce
+## Dependencies
+
+This project uses Git submodules. After cloning, run:
+```
+$ git submodule update --init --recursive
+```
