@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Creepster&display=swap" rel="stylesheet">
+  <title>Instructions Page</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+      font-size: 18px;
+      line-height: 1.6;
+      background-color: #f9f9f9;
+      color: #333;
+      padding: 0 20px;
+    }
+
+
+    body, h1, p {
+      font-family: 'Nunito', 'Segoe UI Rounded', 'Helvetica Rounded', sans-serif;
+    }
+
+    header {
+      text-align: center;
+      padding: 40px 20px 20px;
+    }
+
+    .content {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .scroll-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 6px;
+      background-color: #0096FF;
+      width: 0%;
+      z-index: 100;
+    }
+
+    .main-text {
+      text-align: left;
+      margin-bottom: 40px;
+    }
+
+    .main-text img {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-width: 100%;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+    .highlight-box {
+      border: 4px solid #e53935;
+      /* background-color: #ffebee; */
+      padding: 17px;
+      padding-left: 30px;
+      border-radius: 8px;
+      margin-bottom: 40px;
+    }
+    .highlight-box img {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-width: 100%;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+    .bottom-highlight {
+      border: 4px solid darkgray;
+      background-color: lightgray;
+      color: darkgray;
+      padding: 17px;
+      padding-left: 30px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .backstory-box {
+      border: 4px solid rgb(46, 15, 92);
+      background-color: rgb(229, 211, 242);
+      color: rgb(25, 5, 56);
+      padding: 17px;
+      padding-left: 30px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      /* font-family: 'Creepster', cursive; */
+      /* font-size: 24px;
+      letter-spacing: 1px; */
+    }
+	.button-container {
+		position: relative;
+		padding: 19pt;
+		justify-content: center;
+		display: flex;	
+	}
+
+    .two-column {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .column-left {
+      flex: 3;
+    }
+
+    .column-right {
+      flex: 2;
+      /* display: flex;
+      justify-content: center;
+      align-items: center; */
+    }
+
+    .column-left img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+    .column-right img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+
+    .spooky {
+  font-family: 'Creepster', cursive;
+  font-size: 1.2em;
+  letter-spacing: 1px;
+  color: rgb(46, 15, 92);
+}
+.full-width-image {
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+}
+
+.full-width-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 0;
+}
+#start-btn {
+    padding: 1em 2em;
+    font-size: 1.2em;
+    color: #fff;
+    background: linear-gradient(135deg, #6ec1e4 0%, #1565c0 100%);
+    border: none;
+    border-radius: 2em;
+    cursor: pointer;
+    outline: none;
+    position: relative;
+    transition: background 0.2s, opacity 0.2s;
+    box-shadow: 0 2px 8px rgba(21,101,192,0.15);
+}
+#start-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+#start-btn:hover:not(:disabled) {
+	opacity: 0.75;
+}
+.loader {
+    border: 4px solid rgba(255,255,255,0.3);
+    border-top: 4px solid #fff;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+}
+#start-btn.loading .loader {
+    display: block;
+}
+#start-btn.loading span {
+    visibility: hidden;
+}
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg);}
+    100% { transform: translate(-50%, -50%) rotate(360deg);}
+}
+  </style>
+</head>
+<body>
+  <div class="scroll-progress" id="scrollProgress"></div>
+
+  <div class="content">
+    <header>
+      <h1>Welcome</h1>
+    </header>
+
+    <section class="main-text">
+      <p>
+        Thank you for choosing to participate in this study. Please read the instructions carefully before proceeding.
+      </p>
+
+      <br>
+
+      <div class="highlight-box">
+      <h3> The task </h3>
+      You are playing a game with a partner. Your goal is to together collect as many coins as possible.
+    </div>
+    <br>
+
+
+    <div class="backstory-box"> 
+      <h4> The backstory </h4>
+  
+      An <span class="spooky"> evil wizard </span> 🧙‍♂️ has trapped you and your partner in separate dimensions of the same house 🏠. In order to escape the curse, you and your partner must follow the same path through the house, visiting each room exactly once. Only then will the wizard let you back into the real world.
+      <br>
+      Thankfully, each room is connected to the others via hallways containing varying amounts of scattered coins 🪙 in both dimensions. The coins you and your partner collect on the final path you choose will get summed up and split evenly between you for your in-game reward. Your goal is to collect as many coins as possible with your partner <b>(a large enough sum of coins will result in a monetary bonus)</b>.
+
+    </div>
+
+    <!-- <section class="two-column">
+      
+      <div class="column-left", style="flex:1">
+          <h4> What you see </h4>
+          <img src="images/view1.png">
+      </div>
+
+      <div class="column-right", style="flex:1">
+          <h4> What your partner sees </h4>
+          <img src="images/view2-neg.png"> 
+          
+      </div>
+
+    </section> -->
+    <br>
+
+    <div class="main-text"> 
+      <img src="images/instr page.png" alt="Instructions"> 
+    </div>
+    
+
+    <section class="two-column">
+
+<!-- 
+<div class="dropdown">
+  <span><h4>The backstory</h4></span>
+  <div class="dropdown-content"> -->
+
+  
+      <!-- </div>
+    </div>  -->
+      </section>
+
+      <br>
+
+      <section class="highlight-box"> 
+        <h3> ❗ Game rules </h3>
+      <!-- <p>      <li> visit each room exactly once </li> -->
+
+        <img src="images/rules-visit.png">
+
+        <img src="images/rules-selecting.png">
+
+
+      <li> use the chat to discuss which path you are taking (please only use English) </li>
+      <!-- <li> </li> -->
+        <!-- try to collect <b> as many coins as possible </b> (the more total coins you collect, the higher your score will be) </li> -->
+      <img src="images/rules-collecting-coins.png">
+
+      <li> your final solution needs to be identical as your partner's</li>
+
+      <li>when you are done, click the <b>submit</b> button and wait </li>
+      <img src="images/submit.png">
+      <li> if you achieve a very high score, you will get a monetary bonus </li>
+
+      </p>
+
+      </section>
+      
+    </section>
+
+
+  <div class="highlight-box">
+    <h3> ❗ Reload the page after the game starts </h3>
+    It is recommended to reload the page once at the start. The game may otherwise not show all content correctly.
+  </div>
+<div class="button-container">
+  <button id="start-btn"><span>Start Game</span><div class="loader"></div></button>
+</div>
+
+  <section class="bottom-highlight">
+	By entering into the chatroom you confirm your permission for your data to be logged and to be used for research purposes. The data that is logged is stored on a server at Saarland University. Any experiment-relevant information, such as what you type in the chat is logged with timestamp information. No information that can identify you personally is logged. Please refrain from entering personal details, as well as experiment-irrelevant information in the chat and respect other users. Please be aware that you will be paired with another anonymous participant -- as we are looking for dialogues--, and we have no control over what they might do. Please behave courteously, and demand this from your partner as well. Responsible: Department of Language Science and Technology, Saarland University.
+  </section>
+
+</div>
+
+  <script>
+    window.addEventListener('scroll', function() {
+      const scrollProgress = document.getElementById('scrollProgress');
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = (window.scrollY / totalHeight) * 100;
+      scrollProgress.style.width = progress + '%';
+    });
+    document.getElementById('start-btn').onclick = function() {
+    if (this.disabled) {
+        return;
+    }
+    var btn = this;
+    btn.disabled = true;
+    btn.classList.add('loading');
+    fetch('/start-game/', {method: 'POST'})
+        .then(response => {
+		return response.json().then(data => {
+			if (!response.ok){
+				throw new Error(data.message || "Unknown Error.");
+			}
+			return data;
+		})
+	})
+        .then(data => {
+		if (!data){
+			return;
+		}
+		console.log("response as data: ", data);
+		// Uncomment the next line to redirect
+		window.location.href = data.login_url;
+		// console.log(data.login_url);
+        })
+        .catch(err => {
+		btn.disabled = false;
+		btn.classList.remove('loading');
+		alert(err.message);
+        });
+};
+  </script>
+</body>
+</html>

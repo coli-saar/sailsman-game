@@ -419,8 +419,8 @@ def main(args):
                 user_permissions_id = create_permissions(user_permissions_dict)
                 user_token = create_token(user_permissions_id, room_id, task_id)
                 print(
-                    # f"Token: {user_token} | Link: {SLURK_HOST}/login?name=user_{user}&token={user_token}"
-                    f"Token: {user_token} | Link: https://slurk2.lst.uni-saarland.de/login?name=user_{user}&token={user_token}"
+                    f"Token: {user_token} | Link: {SLURK_HOST}/login?name=user_{user}&token={user_token}"
+                    # f"Token: {user_token} | Link: https://slurk3.lst.uni-saarland.de/login?name=user_{user}&token={user_token}"
                 )
                 f.write(f"Token: {user_token}\n")
         f.write("------------\n")

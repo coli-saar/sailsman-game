@@ -1,13 +1,13 @@
- # Setup a Server from Scratch
+ # Setting up the Slurk Server and Sailsman Bot
 
- ## The aim of this section: Setting up an online slurk-based dialogue game
- There is already an existant [official documentation](https://clp-research.github.io/slurk/) to set-up the slurk server. However, understanding the infrastructure and publicly deploying the server remains confusing even after thoroughly reading through the documentation.
+ <!-- ## The aim of this section: Setting up an online slurk-based dialogue game -->
+ There is already an existing [official documentation](https://clp-research.github.io/slurk/) to set-up the slurk server. However, understanding the infrastructure and publicly deploying the server remains confusing even after thoroughly reading through the documentation.
 
- The aim here is to guide through a setup process that uses the slurk-docker container as frontend, connects a custom bot, which shall serve as the game backend and finally how to make the game publicly available and playable through a crude webpage.
+ The aim here is to guide through a setup process that uses the slurk-docker container as frontend and connects the sailsman bot, which shall serve as the game's backend. We will also share our insights into how we deployed this game publicly, in the hope that this may help someone on a similar endeavor at some point.
  
  ## A quick overview
 
- ![An example welcome page to start the dialogue game](resources/image.png)
+ ![An example welcome page to start the dialogue game](assets/resources/image.png)
 *An example welcome page to start the dialogue game*
 
 The project will roughly have the following structure:\
@@ -18,7 +18,7 @@ Confusingly, the slurk-bot is not really a bot, but rather a game-backend. It sh
 <!-- thatThis means that the backend could also handle a "bot instance" and send signals of that AI-instance to the user, but it should be rather thought of as a game logic that runs in the background. -->
 Both, the slurk server and database will be seperate docker-containers, essentially seperate machines that run on the host. Since all docker-containers are virtually their own machines, they will communicate through their ports. This may seem wonky at times, although it will probably not be of a big focus in this setup.
 
-![](resources/structure_explanation.svg)
+![](assets/resources/structure_explanation.svg)
 *A sketch of the final infrastructure for a running slurk dialogue game. The minimal setup for local development purposes can be reduced to only the slurk-bot container, as well as the slurk container.*
 
 The above graphic depicts an overview of a working deployment to run the game online. This guide will focus on the recreation of starting the slurk-bot, the slurk server (the chat interface and frontend), as well as a connected postgres container (which will turn out to be relatively easy).
@@ -51,21 +51,21 @@ $ git submodule update --init --recursive
 
 **Setting up the project with helper files and scripts**:
 
-A python script to start the bot using podman will be located in `sailsman-game/setup_scripts/`. Copy it into the `slurk-bots/` folder:
+A python script to start the bot using podman will be located in `sailsman-game/setup-scripts/`. Copy it into the `slurk-bots/` folder:
 
 ```shell
-$ cp slurk-bots/sailsman-game/setup_scripts/start_bot_podman.py slurk-bots/
+$ cp slurk-bots/sailsman-game/setup-scripts/start_bot_podman.py slurk-bots/
 ```
 
-The sailsman-game repo includes additional files for easier deployment in `server-setup/`. In order to easily deploy the slurk-server alongside the databse, we will be using a docker-compose file that can be found there. For easier access, move the file to the project folder, alongside the `slurk/`, `slurk-bots/` folder:
+The sailsman-game repo includes additional files for easier deployment in `setup-scripts/server-setup/`. In order to easily deploy the slurk-server alongside the databse, we will be using a docker-compose file that can be found there. For easier access, move the file to the project folder, alongside the `slurk/`, `slurk-bots/` folder:
 
 ```shell
-$ cp slurk-bots/sailsman-game/server-setup/docker-compose.yml
+$ cp slurk-bots/sailsman-game/setup-scripts/server-setup/docker-compose.yml
 ```
 
-There are also some additional helper scripts, allowing easier startup of the bot and container management in `server-setup/scripts`. Copy these files to the project folder:
+There are also some additional helper scripts, allowing easier startup of the bot and container management in `setup-scripts/server-setup/scripts`. Copy these files to the project folder:
 ```shell
-$ cp -r slurk-bots/sailsman-game/server-setup/scripts/ .
+$ cp -r slurk-bots/sailsman-game/setup-scripts/server-setup/scripts/ .
 ```
 
 ### Installing dependencies
@@ -152,24 +152,63 @@ To remove images (advisable, after starting a few bots, as concierge bots accumu
 $ scripts/cleanup_images.sh
 ```
 # Running games as web-application
-:construction: under construction :construction:
+This is definitely not the best but a working setup to run the dialogue game as a web-game. We will use a simple index.html, a start page, which gives an overview of the game - essentially an instruction or tutorial page. From this page, the user will be able to start a game, to which they will be redirected. A rough structural outline can be seen in the project sketch in **A quick overview**.
 
-## Start Game Application
-`start_sailsman_api.py` is a Flask server application, handling the backend for `/var/www/slurk_start/index.html`. The application handles start-container events, for which sailsman bots are created and started. The application also cleans up containers to keep running containers at a minimum.
-Because the start-sailsman script needs to be run in the `slurk-bots/` folder, this application also needs to be. Therefore, in order to start it run the following commands:
+The index.html corresponds to the welcome page and besides its introductory content it really only serves the purpose of starting a game. We will achieve this through a simple flask app "start_sailsman_api", wich will be running on a screen session. The flask app will simply run our `start_sailsman.sh`, which we already set up to work above.
+
+In order to make all these functions available, the approach we'll be using here is as follows:
+
+- At the root of our domain (i.e. slurk.dialogue-game.com/), we will run the slurk game.
+  >[!NOTE] Given the structure of the slurk project it has turned out to be very difficult to open the slurk game at any other path except for the root.
+- At the `/start/` path (i.e.slurk.dialogue-game.com/start/), we will host the index.html, the welcome page.
+- At the `/start-game/` path (i.e.slurk.dialogue-game.com/start-game/), we will have our start_sailsman_api listening, such that a simple post start a new container.
+
+All of the above must be set up in a `.conf` file, for example in `etc/httpd/conf.d/`, when using Apache. 
+>[!Note] A concrete server setup is beyond the scope of this slurk-server setup guide. There are good resources on how to set up an apache server and the configuration, if not with the help of an LLM.
+
+## Welcome page
+We provide an example `index.html` in `sailsman-game/setup-scripts/server-setup`. This file can be simply copied somewhere in `/var/www/`.
+
+### Start Apache Server
+> [!Note] This is expecting of course that the apache server and its configuration have been set up properly.
+```
+$ sudo systemctl start httpd
+```
+
+## Start-Game Application
+In `sailsman-game/setup-scripts/server-setup` we also provide a `start_site_app/` folder. Move this folder into `slurk-bots/`.
+
+
+Inside that folder, you will find `start_sailsman_api.py`, which is the Flask server application we used, handling the backend for `/var/www/index.html`. The application handles start-container events, for which sailsman bots are created and started. The application also cleans up containers to keep running containers at a minimum.
+<!-- Because the start-sailsman script needs to be run in the `slurk-bots/` folder, this application also needs to be. -->
+In order to start it, run the following commands:
 
 ```shell
 $ cd slurk-bots
 $ screen -r {start-game-session}
 $ conda activate {python-env}
+```
+If it is the first time starting, you will need to install the dependencies for flask app:
+```shell
+$ pip install flask
+$ pip install flask_limiter
+$ pip install gunicorn
+```
+After that, execute the app as follows:
+```shell
 $ PYTHONPATH=/home/slurk/start_site_app/ gunicorn -w 1 -b 127.0.0.1:8001 start_sailsman_api:app
-# $ python ../start_sailsman_api.py
 ```
-Here, {start-game-session} will be start_game by default. In case this session does not exist, run `screen -S start_game`. The python environment can be any from the `conda env list` environments. I would recommend using `start_game`.
-## Start Apache Server
-```
-$ sudo systemctl start httpd
-```
+>[!note] If there doesn't yet exist a screening session, run `screen -S {start-game-session}` instead.
+
+>[!Note] There will be some errors at first on missing folders for logging. If no logging is intended, the respective lines can of course be uncommented.
+
+>[!IMPORTANT]
+> Make sure that in start_sailsman.sh, the correct admin token of the slurk server is used. Also ensure that the correct host/domain is given. The also holds for the start_sailsman_api.py file.
+
+> [!IMPORTANT]
+> The slurk server does only allow requests from specific addresses. In order to make the setup work, you will most probably have to add the following argument to SocketIO() in slurk/slurk/extensions/events.py, line 3:\
+cors_allowed_origins=['http://127.0.0.1:5000', 'https://{your_domain_name}']
+<!-- {start-game-session} will be start_game by default. In case this session does not exist, run `screen -S start_game`. The python environment can be any from the `conda env list` environments. I would recommend using `start_game`. -->
 # Additional Notes
 ## Accessing information from rooms
 The `start_bot_podman.py` script posts information to http://127.0.0.1:5000/slurk/api/. It can be handy to look on previous rooms, their ids, task id, user ids, etc.
@@ -179,5 +218,5 @@ For example, to look for the number of users that were in a room, run:
 curl http://127.0.0.1:5000/slurk/api/tasks/{task_id}
 ```
 
-### Note
-Unfortunately, I didn't yet find a way to get the task id from the room id.
+<!-- ### Note
+Unfortunately, I didn't yet find a way to get the task id from the room id. -->

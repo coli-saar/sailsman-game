@@ -5,6 +5,9 @@ copy_plugins=false
 copy_images=false
 num_users=2  # Default number of users
 
+SLURK_HOST="https://slurk3.lst.uni-saarland.de"
+SLURK_API_TOKEN = "1599028a-f8fa-4c3f-a175-efa02407b295"
+
 # Process all arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -26,7 +29,7 @@ done
 
 echo "start game with $num_users users"
 # Base command
-cmd="python /home/slurk/slurk-bots/start_bot_podman.py sailsman-game --users $num_users --slurk-api-token 1599028a-f8fa-4c3f-a175-efa02407b295 --tokens"
+cmd="python /home/slurk/slurk-bots/start_bot_podman.py sailsman-game --users $num_users --slurk-api-token $SLURK_API_TOKEN --tokens --slurk-host $SLURK_HOST"
 
 # Add options based on flags
 if [ "$copy_plugins" = true ]; then
