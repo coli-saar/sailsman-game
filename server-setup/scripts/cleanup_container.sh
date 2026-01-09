@@ -1,0 +1,2 @@
+podman stop $(podman ps -a --format "{{.ID}} {{.Names}}" | grep -vE 'slurk_db_1|slurk_slurk_1' |awk '{print $2}')
+podman rm $(podman ps -a --format "{{.ID}} {{.Names}}" | grep -vE 'slurk_db_1|slurk_slurk_1' |awk '{print $2}')
