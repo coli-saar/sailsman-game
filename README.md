@@ -86,9 +86,11 @@ $ pip install -r ./requirements.txt
 ```shell
 $ sudo dnf install podman
 ```
->[!Note]Instead of using podman, the same can be done using docker. For this, the namespace of some files needs to be changed: whenever any command sais podman, simply change it to docker throughout this setup and files.
+>[!NOTE]
+>Instead of using podman, the same can be done using docker. For this, the namespace of some files needs to be changed: whenever any command sais podman, simply change it to docker throughout this setup and files.
 
->[!TIP] It is recommended to install and use screen to run the slurk server on (the podman-compose command, see below).
+>[!TIP]
+>It is recommended to install and use screen to run the slurk server on (the podman-compose command, see below).
 
  # Starting the Bot on the Server
 
@@ -98,7 +100,8 @@ $ sudo dnf install podman
  podman-compose up
  ```
 
- >[!NOTE] I had issues when just runnging this command on the server. It has shown to best when run on a screen session.
+ >[!NOTE]
+>I had issues when just runnging this command on the server. It has shown to best when run on a screen session.
 
  > [!IMPORTANT]
  > After running the command, it will give you an admin token, which is necessary to connect the bot to the server. It is recommended to save this token somewhere for easier access, as otherwise you'd always have to go back to this shell to copy it. The easiest setup would be to copy it into the start_sailsman.sh script to have it permanently available:
@@ -159,18 +162,21 @@ The index.html corresponds to the welcome page and besides its introductory cont
 In order to make all these functions available, the approach we'll be using here is as follows:
 
 - At the root of our domain (i.e. slurk.dialogue-game.com/), we will run the slurk game.
-  >[!NOTE] Given the structure of the slurk project it has turned out to be very difficult to open the slurk game at any other path except for the root.
+  >[!NOTE]
+  >Given the structure of the slurk project it has turned out to be very difficult to open the slurk game at any other path except for the root.
 - At the `/start/` path (i.e.slurk.dialogue-game.com/start/), we will host the index.html, the welcome page.
 - At the `/start-game/` path (i.e.slurk.dialogue-game.com/start-game/), we will have our start_sailsman_api listening, such that a simple post start a new container.
 
 All of the above must be set up in a `.conf` file, for example in `etc/httpd/conf.d/`, when using Apache. 
->[!Note] A concrete server setup is beyond the scope of this slurk-server setup guide. There are good resources on how to set up an apache server and the configuration, if not with the help of an LLM.
+>[!NOTE]
+>A concrete server setup is beyond the scope of this slurk-server setup guide. There are good resources on how to set up an apache server and the configuration, if not with the help of an LLM.
 
 ## Welcome page
 We provide an example `index.html` in `sailsman-game/setup-scripts/server-setup`. This file can be simply copied somewhere in `/var/www/`.
 
 ### Start Apache Server
-> [!Note] This is expecting of course that the apache server and its configuration have been set up properly.
+> [!NOTE]
+> This is expecting of course that the apache server and its configuration have been set up properly.
 ```
 $ sudo systemctl start httpd
 ```
@@ -198,9 +204,11 @@ After that, execute the app as follows:
 ```shell
 $ PYTHONPATH=/home/slurk/start_site_app/ gunicorn -w 1 -b 127.0.0.1:8001 start_sailsman_api:app
 ```
->[!note] If there doesn't yet exist a screening session, run `screen -S {start-game-session}` instead.
+>[!NOTE]
+>If there doesn't yet exist a screening session, run `screen -S {start-game-session}` instead.
 
->[!Note] There will be some errors at first on missing folders for logging. If no logging is intended, the respective lines can of course be uncommented.
+>[!NOTE]
+>There will be some errors at first on missing folders for logging. If no logging is intended, the respective lines can of course be uncommented.
 
 >[!IMPORTANT]
 > Make sure that in start_sailsman.sh, the correct admin token of the slurk server is used. Also ensure that the correct host/domain is given. The also holds for the start_sailsman_api.py file.
